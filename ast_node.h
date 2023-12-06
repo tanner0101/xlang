@@ -61,25 +61,26 @@ std::ostream &operator<<(std::ostream &os, ASTNode node) {
     case NodeType::string_literal:
         os << "(" << std::get<std::string>(node.content) << ")";
         break;
-    case NodeType::function_definition:
-        os << "(" << std::get<FunctionDefinition>(node.content).name << ",";
-        for (auto argument :
-             std::get<FunctionDefinition>(node.content).arguments) {
+    case NodeType::function_definition: {
+        auto functionDefinition = std::get<FunctionDefinition>(node.content);
+        os << "(" << functionDefinition.name << ",";
+        for (auto argument : functionDefinition.arguments) {
             os << argument;
         }
         os << ",";
-        for (auto body : std::get<FunctionDefinition>(node.content).body) {
+        for (auto body : functionDefinition.body) {
             os << body;
         }
         os << ")";
-        break;
-    case NodeType::function_call:
-        os << "(" << std::get<FunctionCall>(node.content).name << ",";
-        for (auto argument : std::get<FunctionCall>(node.content).arguments) {
+    } break;
+    case NodeType::function_call: {
+        auto functionCall = std::get<FunctionCall>(node.content);
+        os << "(" << functionCall.name << ",";
+        for (auto argument : functionCall.arguments) {
             os << argument;
         }
         os << ")";
-        break;
+    } break;
     default:
         break;
     }
