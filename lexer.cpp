@@ -4,7 +4,7 @@ Lexer::Lexer() {}
 
 Lexer::~Lexer() {}
 
-std::vector<Token> Lexer::lex(StringLexer input) {
+std::vector<Token> Lexer::lex(Buffer<std::string> input) {
     std::vector<Token> tokens{};
 
     std::string identifier{};
