@@ -1,6 +1,6 @@
 #pragma once
 
-#include "buffer.h"
+#include "../util/buffer.h"
 #include "token.h"
 #include <optional>
 #include <string>
@@ -14,16 +14,16 @@ enum class LexerState {
 
 class Lexer {
   public:
-    Lexer();
-    ~Lexer();
+    Lexer() = default;
+    ~Lexer() = default;
 
     LexerState state = LexerState::none;
 
-    inline std::vector<Token> lex(std::string input) {
+    inline auto lex(std::string input) -> std::vector<Token> {
         return lex(Buffer<std::string>(input));
     }
 
-    std::vector<Token> lex(Buffer<std::string> input);
+    auto lex(Buffer<std::string> input) -> std::vector<Token>;
 
     void printTokens();
 };

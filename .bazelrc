@@ -1,1 +1,1 @@
-build -c dbg --cxxopt=-std=c++20
+build -c dbg --cxxopt=-std=c++23

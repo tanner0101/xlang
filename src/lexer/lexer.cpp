@@ -1,33 +1,29 @@
 #include "lexer.h"
 
-Lexer::Lexer() {}
-
-Lexer::~Lexer() {}
-
-std::vector<Token> Lexer::lex(Buffer<std::string> input) {
+auto Lexer::lex(Buffer<std::string> input) -> std::vector<Token> {
     std::vector<Token> tokens{};
 
     std::string identifier{};
 
-    while (input.peek().has_value()) {
+    while (!input.empty()) {
         switch (state) {
         case LexerState::none:
-            switch (input.peek().value()) {
+            switch (input.peek()) {
             case '(':
                 input.pop();
-                tokens.push_back(Token{TokenType::paren_open});
+                tokens.emplace_back(TokenType::paren_open);
                 break;
             case ')':
                 input.pop();
-                tokens.push_back(Token{TokenType::paren_close});
+                tokens.emplace_back(TokenType::paren_close);
                 break;
             case '{':
                 input.pop();
-                tokens.push_back(Token{TokenType::curly_open});
+                tokens.emplace_back(TokenType::curly_open);
                 break;
             case '}':
                 input.pop();
-                tokens.push_back(Token{TokenType::curly_close});
+                tokens.emplace_back(TokenType::curly_close);
                 break;
             case '"':
                 input.pop();
@@ -44,13 +40,13 @@ std::vector<Token> Lexer::lex(Buffer<std::string> input) {
             }
             break;
         case LexerState::identifier:
-            if (std::isalpha(input.peek().value())) {
-                identifier.push_back(input.pop().value());
+            if (std::isalpha(input.peek())) {
+                identifier.push_back(input.pop());
             } else {
                 if (identifier == "fn") {
-                    tokens.push_back(Token{TokenType::function});
+                    tokens.emplace_back(TokenType::function);
                 } else {
-                    tokens.push_back(Token{TokenType::identifier, identifier});
+                    tokens.emplace_back(TokenType::identifier, identifier);
                 }
                 identifier.clear();
                 state = LexerState::none;
@@ -58,13 +54,13 @@ std::vector<Token> Lexer::lex(Buffer<std::string> input) {
             break;
         case LexerState::string_literal:
             // TODO: support escape sequences
-            if (input.peek().value() == '"') {
+            if (input.peek() == '"') {
                 input.pop();
                 state = LexerState::none;
-                tokens.push_back(Token{TokenType::string_literal, identifier});
+                tokens.emplace_back(TokenType::string_literal, identifier);
                 identifier.clear();
             } else {
-                identifier.push_back(input.pop().value());
+                identifier.push_back(input.pop());
             }
             break;
         };

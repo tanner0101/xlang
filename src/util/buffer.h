@@ -1,3 +1,6 @@
+#pragma once
+
+#include <cassert>
 #include <concepts>
 #include <cstddef>
 #include <optional>
@@ -15,23 +18,25 @@ template <Container T> class Buffer {
     size_t position = 0;
 
   public:
-    Buffer(const T &s) : storage(s) {}
+    Buffer(T s) : storage(std::move(s)) {}
 
-    std::optional<typename T::value_type> peek() const {
-        if (eof()) {
-            return std::nullopt;
+    [[nodiscard]] inline auto peek() const -> T::value_type {
+        if (empty()) {
+            assert(false);
         }
 
         return storage[position];
     }
 
-    std::optional<typename T::value_type> pop() {
-        if (eof()) {
-            return std::nullopt;
+    inline auto pop() -> T::value_type {
+        if (empty()) {
+            assert(false);
         }
 
         return storage[position++];
     }
 
-    bool eof() const { return position >= storage.size(); }
+    [[nodiscard]] inline auto empty() const -> bool {
+        return position >= storage.size();
+    }
 };

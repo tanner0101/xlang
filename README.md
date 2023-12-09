@@ -8,16 +8,22 @@ Get buildifier
 wget https://github.com/bazelbuild/buildtools/releases/download/v6.4.0/buildifier-linux-amd64
 ```
 
-# Lexer
+Install LLVM: `sudo apt install llvm`
 
-Build
+# Example
+
+Compile and run the following program:
+
+```x
+fn main() {
+    print("Hello, world!")
+}
+```
 
 ```
-bazel build //:lexer
+cat hello_world.x | bazel run //src:xlang | lli
 ```
 
-Test
+# Tests
 
-```
-bazel run //:lexer_tests
-```
+Run tests using VSCode or `bazel test //...`.

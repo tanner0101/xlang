@@ -16,14 +16,9 @@ TEST(ParserTest, TestParsing) {
         Token{TokenType::paren_close},
         Token{TokenType::curly_close}};
     auto ast = parser.parse(tokens);
-    std::vector<ASTNode> expected{
-        ASTNode{NodeType::function_definition,
-                FunctionDefinition{
-                    "main", std::vector<ASTNode>{},
-                    std::vector<ASTNode>{ASTNode{
-                        NodeType::function_call,
-                        FunctionCall{"print", std::vector<ASTNode>{ASTNode{
-                                                  NodeType::string_literal,
-                                                  "Hello, world!"}}}}}}}};
+    auto expected = std::vector<Node>{
+        FunctionDefinition{"main", std::vector<Node>{},
+                           std::vector<Node>{FunctionCall{
+                               "print", std::vector<Node>{"Hello, world!"}}}}};
     ASSERT_EQ(ast, expected);
 }

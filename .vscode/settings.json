@@ -1,7 +1,12 @@
 {
     "C_Cpp.codeAnalysis.runAutomatically": true,
     "C_Cpp.codeAnalysis.clangTidy.enabled": true,
-    "C_Cpp.clang_format_style": "{ BasedOnStyle: LLVM, BreakBeforeBraces: Attach, IndentWidth: 4 }",
+    "C_Cpp.clang_format_style": "{ BasedOnStyle: LLVM, BreakBeforeBraces: Attach, IndentWidth: 4, PointerAlignment: Left }",
+    "C_Cpp.codeAnalysis.clangTidy.checks.enabled": [
+        "modernize-*",
+        "bugprone-*"
+    ],
+    // "C_Cpp.loggingLevel": "Debug",
     "files.associations": {
         "any": "cpp",
         "array": "cpp",
@@ -69,6 +74,8 @@
         "streambuf": "cpp",
         "thread": "cpp",
         "typeinfo": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "future": "cpp",
+        "shared_mutex": "cpp"
     },
 }
