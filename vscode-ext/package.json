@@ -1,0 +1,71 @@
+{
+    "name": "xlang-lsp-client",
+    "description": "VSCode LSP client for Xlang",
+    "author": "tanner0101",
+    "license": "MIT",
+    "version": "0.0.1",
+    "publisher": "vscode",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/tanner0101/xlang"
+    },
+    "engines": {
+        "vscode": "^1.75.0"
+    },
+    "dependencies": {
+        "vscode-languageclient": "^8.1.0"
+    },
+    "activationEvents": [
+        "onLanguage:xlang"
+    ],
+    "main": "./out/extension",
+    "contributes": {
+        "languages": [
+            {
+                "id": "xlang",
+                "aliases": [
+                    "X",
+                    "x",
+                    "Xlang"
+                ],
+                "extensions": [
+                    ".x"
+                ]
+            }
+        ],
+        "configuration": {
+            "type": "object",
+            "title": "Example configuration",
+            "properties": {
+                "languageServerExample.maxNumberOfProblems": {
+                    "scope": "resource",
+                    "type": "number",
+                    "default": 100,
+                    "description": "Controls the maximum number of problems produced by the server."
+                },
+                "languageServerExample.trace.server": {
+                    "scope": "window",
+                    "type": "string",
+                    "enum": [
+                        "off",
+                        "messages",
+                        "verbose"
+                    ],
+                    "default": "off",
+                    "description": "Traces the communication between VS Code and the language server."
+                }
+            }
+        }
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.75.1",
+        "@vscode/test-electron": "^2.2.3",
+        "@types/node": "^16.18.34",
+        "typescript": "^5.3.2"
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -b",
+        "watch": "tsc -b -w"
+    }
+}

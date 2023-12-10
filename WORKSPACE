@@ -11,6 +11,7 @@ new_local_repository(
     build_file_content = """
 cc_library(
     name = "llvm",
+    includes = ["."],
     hdrs = glob(["**/*.h", "**/*.def", "**/*.inc", "**/*.td", "**/*.gen"]),
     linkopts = [
         "-L/usr/lib/llvm-14/lib",
@@ -20,4 +21,23 @@ cc_library(
 )
 """,
     path = "/usr/lib/llvm-14/include",
+)
+
+new_local_repository(
+    name = "boost",
+    build_file_content = """
+cc_library(
+    name = "boost",
+    hdrs = glob(["boost/**/*.hpp"]),
+    includes = ["."],
+    linkopts = [
+        "-static",
+        "-L/usr/local/lib",
+        "-lboost_system",
+        "-lboost_json",
+    ],
+    visibility = ["//visibility:public"]
+)
+""",
+    path = "/usr/local/include",
 )

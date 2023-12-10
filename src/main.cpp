@@ -13,9 +13,11 @@ auto main() -> int {
     while (std::getline(std::cin, line)) {
         program += line + "\n";
     }
-    lexer.lex(program);
+
     const auto tokens = lexer.lex(program);
     const auto ast = parser.parse(tokens);
-    std::cout << compiler.compile(ast) << std::endl;
+    const auto ir = compiler.compile(ast);
+    std::cout << ir << std::endl;
+
     return 0;
 }

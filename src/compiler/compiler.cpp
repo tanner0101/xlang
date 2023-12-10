@@ -1,7 +1,7 @@
 #include "compiler.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/Module.h"
 #include <cassert>
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/Module.h>
 
 auto generateIR(const Node& node, llvm::Module& module,
                 llvm::IRBuilder<>& builder) -> llvm::Value* {
