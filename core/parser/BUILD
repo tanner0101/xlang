@@ -8,8 +8,8 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//src/lexer:token",
-        "//src/util:buffer",
+        "//core/lexer:token",
+        "//core/util:buffer",
     ],
 )
 
@@ -24,8 +24,8 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":node",
-        "//src/lexer:token",
-        "//src/util:buffer",
+        "//core/lexer:token",
+        "//core/util:buffer",
     ],
 )
 

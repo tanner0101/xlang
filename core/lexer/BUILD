@@ -19,7 +19,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":token",
-        "//src/util:buffer",
+        "//core/util:buffer",
     ],
 )
 

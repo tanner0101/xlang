@@ -9,7 +9,7 @@
             "command": "bazel build //..."
         },
         {
-            "label": "vscode-extension-build",
+            "label": "vscode-ext-build",
             "type": "npm",
             "script": "compile",
             "group": "build",
@@ -18,7 +18,7 @@
                 "reveal": "never"
             },
             "options": {
-                "cwd": "${workspaceFolder}/vscode-ext"
+                "cwd": "${workspaceFolder}/extra/vscode-ext"
             },
             "problemMatcher": [
                 "$tsc"

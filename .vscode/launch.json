@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "//src/parser:tests",
+            "name": "//core/parser:tests",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/bazel-bin/src/parser/tests",
@@ -27,7 +27,7 @@
             "preLaunchTask": "build"
         },
         {
-            "name": "//src/lexer:tests",
+            "name": "//core/lexer:tests",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/bazel-bin/src/lexer/tests",
@@ -52,7 +52,7 @@
             "preLaunchTask": "build"
         },
         {
-            "name": "//src/compiler:tests",
+            "name": "//core/compiler:tests",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/bazel-bin/src/compiler/tests",
@@ -77,17 +77,17 @@
             "preLaunchTask": "build"
         },
         {
-            "name": "vscode-extension",
+            "name": "//extra/vscode-ext",
             "type": "extensionHost",
             "request": "launch",
             "runtimeExecutable": "${execPath}",
             "args": [
-                "--extensionDevelopmentPath=${workspaceRoot}"
+                "--extensionDevelopmentPath=${workspaceRoot}/extra/vscode-ext",
             ],
             "outFiles": [
-                "${workspaceRoot}/vscode-ext/out/*.js"
+                "${workspaceRoot}/extra/vscode-ext/out/**/*.js"
             ],
-            "preLaunchTask": "vscode-extension-build"
+            "preLaunchTask": "vscode-ext-build"
         },
     ]
 }

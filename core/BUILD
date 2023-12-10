@@ -4,8 +4,8 @@ cc_binary(
         "main.cpp",
     ],
     deps = [
-        "//src/compiler",
-        "//src/lexer",
-        "//src/parser",
+        "//core/compiler",
+        "//core/lexer",
+        "//core/parser",
     ],
 )

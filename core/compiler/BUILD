@@ -8,9 +8,9 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//src/parser",
-        "//src/parser:node",
-        "//src/util:buffer",
+        "//core/parser",
+        "//core/parser:node",
+        "//core/util:buffer",
         "@llvm",
     ],
 )

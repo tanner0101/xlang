@@ -13,7 +13,7 @@ let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
     const serverModule = context.asAbsolutePath(
-        path.join('../', 'bazel-bin', 'src', 'lsp', 'server')
+        path.join('../', '../', 'bazel-bin', 'extra', 'lsp-server', 'server')
     );
 
     const command: Executable = {

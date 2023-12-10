@@ -21,7 +21,7 @@ fn main() {
 ```
 
 ```
-cat hello_world.x | bazel run //src:xlang | lli
+cat hello_world.x | bazel run //core:xlang | lli
 ```
 
 # Tests
