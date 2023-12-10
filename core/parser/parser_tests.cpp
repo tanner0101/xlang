@@ -4,17 +4,18 @@
 Parser parser{};
 
 TEST(ParserTest, TestParsing) {
+    auto source = Source{};
     const std::vector<Token> tokens{
-        Token{TokenType::function},
-        Token{TokenType::identifier, "main"},
-        Token{TokenType::paren_open},
-        Token{TokenType::paren_close},
-        Token{TokenType::curly_open},
-        Token{TokenType::identifier, "print"},
-        Token{TokenType::paren_open},
-        Token{TokenType::string_literal, "Hello, world!"},
-        Token{TokenType::paren_close},
-        Token{TokenType::curly_close}};
+        Token{TokenType::function, source},
+        Token{TokenType::identifier, "main", source},
+        Token{TokenType::paren_open, source},
+        Token{TokenType::paren_close, source},
+        Token{TokenType::curly_open, source},
+        Token{TokenType::identifier, "print", source},
+        Token{TokenType::paren_open, source},
+        Token{TokenType::string_literal, "Hello, world!", source},
+        Token{TokenType::paren_close, source},
+        Token{TokenType::curly_close, source}};
     auto ast = parser.parse(tokens);
     auto expected = std::vector<Node>{
         FunctionDefinition{"main", std::vector<Node>{},

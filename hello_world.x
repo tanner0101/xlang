@@ -1,3 +1,8 @@
 fn main() {
-    print("Hello, world!");
+    print("world!")
+    foo(bar)
+}
+
+fn test() {
+    print("hello")
 }

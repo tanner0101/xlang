@@ -13,6 +13,7 @@ enum class TokenType {
     curly_close,
     identifier,
     string_literal,
+    unknown,
 };
 
 inline auto tokenToString(TokenType tokenType) -> std::string {
@@ -38,12 +39,19 @@ inline auto operator<<(std::ostream& os, TokenType tokenType) -> std::ostream& {
     return os;
 }
 
+struct Source {
+    int line;
+    int column;
+};
+
 struct Token {
     TokenType type;
     std::variant<std::monostate, std::string> value;
+    Source source;
 
-    Token(TokenType type) : type{type} {}
-    Token(TokenType type, std::string string) : type{type}, value(string) {}
+    Token(TokenType type, Source source) : type{type}, source{source} {}
+    Token(TokenType type, std::string string, Source source)
+        : type{type}, value(string), source{source} {}
 };
 
 inline auto operator<<(std::ostream& os, const Token& token) -> std::ostream& {

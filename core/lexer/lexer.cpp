@@ -1,9 +1,15 @@
 #include "lexer.h"
+#include <cassert>
 
 auto Lexer::lex(Buffer<std::string> input) -> std::vector<Token> {
     std::vector<Token> tokens{};
 
     std::string identifier{};
+
+    auto source = Source{
+        .line = 0,
+        .column = 0,
+    };
 
     while (!input.empty()) {
         switch (state) {
@@ -11,32 +17,50 @@ auto Lexer::lex(Buffer<std::string> input) -> std::vector<Token> {
             switch (input.peek()) {
             case '(':
                 input.pop();
-                tokens.emplace_back(TokenType::paren_open);
+                tokens.emplace_back(TokenType::paren_open, source);
+                source.column += 1;
                 break;
             case ')':
                 input.pop();
-                tokens.emplace_back(TokenType::paren_close);
+                tokens.emplace_back(TokenType::paren_close, source);
+                source.column += 1;
                 break;
             case '{':
                 input.pop();
-                tokens.emplace_back(TokenType::curly_open);
+                tokens.emplace_back(TokenType::curly_open, source);
+                source.column += 1;
                 break;
             case '}':
                 input.pop();
-                tokens.emplace_back(TokenType::curly_close);
+                tokens.emplace_back(TokenType::curly_close, source);
+                source.column += 1;
                 break;
             case '"':
-                input.pop();
                 state = LexerState::string_literal;
+                input.pop();
                 break;
             case ' ':
-            case '\n':
-            case '\t':
                 input.pop();
+                source.column += 1;
                 break;
-            default:
-                state = LexerState::identifier;
+            case '\n':
+                input.pop();
+                source.line += 1;
+                source.column = 0;
                 break;
+            case '\t':
+                assert(false);
+            default: {
+                if (std::isalpha(input.peek())) {
+                    state = LexerState::identifier;
+                } else {
+                    const auto unknown = input.pop();
+                    source.column += 1;
+                    tokens.emplace_back(TokenType::unknown,
+                                        std::string(1, unknown), source);
+                    state = LexerState::none;
+                }
+            } break;
             }
             break;
         case LexerState::identifier:
@@ -44,10 +68,12 @@ auto Lexer::lex(Buffer<std::string> input) -> std::vector<Token> {
                 identifier.push_back(input.pop());
             } else {
                 if (identifier == "fn") {
-                    tokens.emplace_back(TokenType::function);
+                    tokens.emplace_back(TokenType::function, source);
                 } else {
-                    tokens.emplace_back(TokenType::identifier, identifier);
+                    tokens.emplace_back(TokenType::identifier, identifier,
+                                        source);
                 }
+                source.column += (int)identifier.size();
                 identifier.clear();
                 state = LexerState::none;
             }
@@ -57,7 +83,9 @@ auto Lexer::lex(Buffer<std::string> input) -> std::vector<Token> {
             if (input.peek() == '"') {
                 input.pop();
                 state = LexerState::none;
-                tokens.emplace_back(TokenType::string_literal, identifier);
+                tokens.emplace_back(TokenType::string_literal, identifier,
+                                    source);
+                source.column += (int)identifier.size() + 2;
                 identifier.clear();
             } else {
                 identifier.push_back(input.pop());

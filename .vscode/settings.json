@@ -6,7 +6,8 @@
         "modernize-*",
         "bugprone-*"
     ],
-    // "C_Cpp.loggingLevel": "Debug",
+    "C_Cpp.errorSquiggles": "enabled",
+    "C_Cpp.loggingLevel": "Debug",
     "files.associations": {
         "any": "cpp",
         "array": "cpp",
