@@ -1,4 +1,5 @@
 #include "../../core/lexer/lexer.h"
+#include "../../core/parser/parser.h"
 #include <boost/asio.hpp>
 #include <boost/json.hpp>
 #include <fstream>
@@ -44,10 +45,53 @@ auto parseRequest(std::string const& data) -> std::optional<Request> {
                    .params = json.at("params").as_object()};
 }
 
+auto convertDiagnostics(Diagnostics diagnostics) -> boost::json::array {
+    auto result = boost::json::array{};
+    for (const auto& diagnostic : diagnostics) {
+        auto severity = 0;
+        switch (diagnostic.type) {
+        case DiagnosticType::error:
+            severity = 1;
+            break;
+        case DiagnosticType::warning:
+            severity = 2;
+            break;
+        case DiagnosticType::note:
+            severity = 3;
+            break;
+        }
+        result.push_back(boost::json::object{
+            {"message", diagnostic.message},
+            {"severity", severity},
+            {"range",
+             boost::json::object{
+                 {"start",
+                  boost::json::object{{"line", diagnostic.source.line},
+                                      {"character", diagnostic.source.column}}},
+                 {"end", boost::json::object{
+                             {"line", diagnostic.source.line},
+                             {"character", diagnostic.source.column}}}}}});
+    }
+    return result;
+}
+
 struct Context {
+    Parser parser;
     Lexer lexer;
     std::unordered_map<std::string, std::string> files;
 };
+
+auto publishDiagnostics(Context ctx, std::string uri, std::string file)
+    -> boost::json::object {
+    auto diagnostics = Diagnostics{};
+    auto tokens = ctx.lexer.lex(file, diagnostics);
+    ctx.parser.parse(tokens, diagnostics);
+    return boost::json::object{
+        {"method", "textDocument/publishDiagnostics"},
+        {"params",
+         boost::json::object{
+             {"uri", uri}, {"diagnostics", convertDiagnostics(diagnostics)}}}};
+}
 
 auto handle(Request request, Context& ctx)
     -> std::optional<boost::json::object> {
@@ -68,12 +112,12 @@ auto handle(Request request, Context& ctx)
                             boost::json::array{"defaultLibrary"}}}},
                       {"full", true}}}}}};
     } else if (request.method == "textDocument/semanticTokens/full") {
-        auto lexer = Lexer{};
         auto uri =
             request.params.at("textDocument").at("uri").as_string().c_str();
 
         auto data = boost::json::array{};
-        const auto tokens = lexer.lex(ctx.files[uri]);
+        auto diagnostics = Diagnostics{};
+        const auto tokens = ctx.lexer.lex(ctx.files[uri], diagnostics);
 
         int previousLine = 0;
         int previousColumn = 0;
@@ -119,39 +163,17 @@ auto handle(Request request, Context& ctx)
         const auto uri = textDocument.at("uri").as_string().c_str();
         const auto file = textDocument.at("text").as_string().c_str();
         ctx.files[uri] = file;
+        return publishDiagnostics(ctx, uri, file);
     } else if (request.method == "textDocument/didChange") {
         const auto textDocument = request.params.at("textDocument");
         const auto uri = textDocument.at("uri").as_string().c_str();
 
-        boost::json::array diagnostics;
         if (request.params.contains("contentChanges")) {
             const auto contentChanges = request.params.at("contentChanges");
             const auto file =
                 contentChanges.at(0).at("text").as_string().c_str();
             ctx.files[uri] = file;
-            for (const auto& token : ctx.lexer.lex(file)) {
-                if (token.type == TokenType::unknown) {
-                    auto diagnostic = boost::json::object{
-                        {"message", "Unknown token"},
-                        {"severity", 1},
-                        {"range",
-                         boost::json::object{
-                             {"start",
-                              boost::json::object{
-                                  {"line", token.source.line},
-                                  {"character", token.source.column}}},
-                             {"end",
-                              boost::json::object{
-                                  {"line", token.source.line},
-                                  {"character", token.source.column}}}}}};
-                    diagnostics.push_back(diagnostic);
-                }
-            }
-
-            return boost::json::object{
-                {"method", "textDocument/publishDiagnostics"},
-                {"params", boost::json::object{{"uri", uri},
-                                               {"diagnostics", diagnostics}}}};
+            return publishDiagnostics(ctx, uri, file);
         }
     }
 

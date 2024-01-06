@@ -4,11 +4,13 @@
 Lexer lexer{};
 
 TEST(LexerTest, TestTokenization) {
+    auto diagnostics = Diagnostics{};
     const auto parsed = lexer.lex(R"(
 fn main() {
     print("Hello, world!")
 }
-)");
+)",
+                                  diagnostics);
 
     auto source = Source{};
     const std::vector<Token> expected{
@@ -24,4 +26,5 @@ fn main() {
         Token{TokenType::curly_close, source}};
 
     ASSERT_EQ(parsed, expected);
+    ASSERT_EQ(diagnostics.size(), 0);
 }

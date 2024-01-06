@@ -5,6 +5,7 @@ Parser parser{};
 
 TEST(ParserTest, TestParsing) {
     auto source = Source{};
+    auto diagnostics = Diagnostics{};
     const std::vector<Token> tokens{
         Token{TokenType::function, source},
         Token{TokenType::identifier, "main", source},
@@ -16,10 +17,16 @@ TEST(ParserTest, TestParsing) {
         Token{TokenType::string_literal, "Hello, world!", source},
         Token{TokenType::paren_close, source},
         Token{TokenType::curly_close, source}};
-    auto ast = parser.parse(tokens);
+    auto ast = parser.parse(tokens, diagnostics);
     auto expected = std::vector<Node>{
-        FunctionDefinition{"main", std::vector<Node>{},
-                           std::vector<Node>{FunctionCall{
-                               "print", std::vector<Node>{"Hello, world!"}}}}};
+        {FunctionDefinition{
+             "main", std::vector<Node>{},
+             std::vector<Node>{
+                 {FunctionCall{"print",
+                               std::vector<Node>{
+                                   {"Hello, world!", std::vector<Token>{}}}},
+                  std::vector<Token>{}}}},
+         std::vector<Token>{}}};
     ASSERT_EQ(ast, expected);
+    ASSERT_EQ(diagnostics.size(), 0);
 }

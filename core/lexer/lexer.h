@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../util/buffer.h"
+#include "../util/diagnostics.h"
 #include "token.h"
 #include <optional>
 #include <string>
@@ -19,11 +20,13 @@ class Lexer {
 
     LexerState state = LexerState::none;
 
-    inline auto lex(std::string input) -> std::vector<Token> {
-        return lex(Buffer<std::string>(input));
+    inline auto lex(std::string input, Diagnostics& diagnostics)
+        -> std::vector<Token> {
+        return lex(Buffer<std::string>(input), diagnostics);
     }
 
-    auto lex(Buffer<std::string> input) -> std::vector<Token>;
+    auto lex(Buffer<std::string> input, Diagnostics& diagnostics)
+        -> std::vector<Token>;
 
     void printTokens();
 };

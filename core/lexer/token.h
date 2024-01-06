@@ -5,6 +5,8 @@
 #include <string>
 #include <variant>
 
+#include "../util/source.h"
+
 enum class TokenType {
     function,
     paren_open,
@@ -13,10 +15,11 @@ enum class TokenType {
     curly_close,
     identifier,
     string_literal,
+    new_line,
     unknown,
 };
 
-inline auto tokenToString(TokenType tokenType) -> std::string {
+inline auto tokenTypeToString(TokenType tokenType) -> std::string {
 #define TOKEN_TYPE_CASE(name)                                                  \
     case TokenType::name:                                                      \
         return #name
@@ -28,6 +31,7 @@ inline auto tokenToString(TokenType tokenType) -> std::string {
         TOKEN_TYPE_CASE(curly_open);
         TOKEN_TYPE_CASE(curly_close);
         TOKEN_TYPE_CASE(identifier);
+        TOKEN_TYPE_CASE(new_line);
         TOKEN_TYPE_CASE(string_literal);
     default:
         return "unknown";
@@ -35,14 +39,9 @@ inline auto tokenToString(TokenType tokenType) -> std::string {
 }
 
 inline auto operator<<(std::ostream& os, TokenType tokenType) -> std::ostream& {
-    os << tokenToString(tokenType);
+    os << tokenTypeToString(tokenType);
     return os;
 }
-
-struct Source {
-    int line;
-    int column;
-};
 
 struct Token {
     TokenType type;

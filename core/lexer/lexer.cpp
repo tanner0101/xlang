@@ -1,7 +1,8 @@
 #include "lexer.h"
 #include <cassert>
 
-auto Lexer::lex(Buffer<std::string> input) -> std::vector<Token> {
+auto Lexer::lex(Buffer<std::string> input, Diagnostics& diagnostics)
+    -> std::vector<Token> {
     std::vector<Token> tokens{};
 
     std::string identifier{};
@@ -45,20 +46,25 @@ auto Lexer::lex(Buffer<std::string> input) -> std::vector<Token> {
                 break;
             case '\n':
                 input.pop();
+                // tokens.emplace_back(TokenType::new_line, source);
                 source.line += 1;
                 source.column = 0;
                 break;
             case '\t':
-                assert(false);
+                diagnostics.push_error("Tabs are not allowed", source);
+                break;
             default: {
                 if (std::isalpha(input.peek())) {
                     state = LexerState::identifier;
                 } else {
                     const auto unknown = input.pop();
-                    source.column += 1;
                     tokens.emplace_back(TokenType::unknown,
                                         std::string(1, unknown), source);
                     state = LexerState::none;
+                    diagnostics.push_error("Unknown token: '" +
+                                               std::string(1, unknown) + "'",
+                                           source);
+                    source.column += 1;
                 }
             } break;
             }

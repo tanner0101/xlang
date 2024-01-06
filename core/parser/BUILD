@@ -26,6 +26,7 @@ cc_library(
         ":node",
         "//core/lexer:token",
         "//core/util:buffer",
+        "//core/util:diagnostics",
     ],
 )
 

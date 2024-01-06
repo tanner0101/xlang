@@ -5,9 +5,14 @@ xlang::Compiler compiler{};
 
 TEST(CompilerTest, TestCompile) {
     auto ast = std::vector<Node>{
-        FunctionDefinition{"main", std::vector<Node>{},
-                           std::vector<Node>{FunctionCall{
-                               "print", std::vector<Node>{"Hello, world!"}}}}};
+        {FunctionDefinition{
+             "main", std::vector<Node>{},
+             std::vector<Node>{
+                 {FunctionCall{"print",
+                               std::vector<Node>{
+                                   {"Hello, world!", std::vector<Token>{}}}},
+                  std::vector<Token>{}}}},
+         std::vector<Token>{}}};
     const auto lli = compiler.compile(ast);
     ASSERT_EQ(lli, R"(; ModuleID = 'xlang'
 source_filename = "xlang"

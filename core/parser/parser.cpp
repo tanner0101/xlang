@@ -1,32 +1,61 @@
 #include "parser.h"
-#include <cassert>
 
-auto parse_expression(Buffer<std::vector<Token>>& tokens) -> std::vector<Node>;
+auto parse_expression(Buffer<std::vector<Token>>& tokens,
+                      Diagnostics& diagnostics) -> Node;
 
-auto parse_function_call(Buffer<std::vector<Token>>& tokens) -> FunctionCall {
+auto parse_function_call(Buffer<std::vector<Token>>& tokens,
+                         Diagnostics& diagnostics) -> Node {
     FunctionCall functionCall{};
+    std::vector<Token> consumedTokens{};
 
-    assert(tokens.peek().type == TokenType::identifier);
-    functionCall.name = std::get<std::string>(tokens.pop().value);
-    assert(tokens.pop().type == TokenType::paren_open);
+    std::cout << "parse_function_call" << std::endl;
+
+    auto token = tokens.pop();
+    if (token.type != TokenType::identifier) {
+        diagnostics.push_error("Expected function call identifier",
+                               token.source);
+        return {functionCall, consumedTokens};
+    }
+    functionCall.name = std::get<std::string>(token.value);
+
+    token = tokens.pop();
+    if (token.type != TokenType::paren_open) {
+        diagnostics.push_error("Expected function arguments", token.source);
+        return {functionCall, consumedTokens};
+    }
 
     while (!tokens.empty()) {
-        switch (tokens.peek().type) {
+        token = tokens.peek();
+        switch (token.type) {
         case TokenType::string_literal: {
             const auto string = tokens.pop();
+            consumedTokens.push_back(string);
             functionCall.arguments.emplace_back(
-                NodeType::string_literal, std::get<std::string>(string.value));
+                NodeType::string_literal, std::get<std::string>(string.value),
+                std::vector<Token>{string});
         } break;
         case TokenType::paren_close:
-            tokens.pop();
-            return functionCall;
-        default:
-            assert(false);
-            break;
+            consumedTokens.push_back(tokens.pop());
+            return {functionCall, consumedTokens};
+
+        case TokenType::identifier: {
+            const auto identifier = tokens.pop();
+            consumedTokens.push_back(identifier);
+            functionCall.arguments.emplace_back(
+                NodeType::identifier, std::get<std::string>(identifier.value),
+                std::vector<Token>{identifier});
+        } break;
+        default: {
+            consumedTokens.push_back(tokens.pop());
+            diagnostics.push_error(
+                "Unexpected token while parsing function arguments: " +
+                    tokenTypeToString(token.type),
+                token.source);
+        } break;
         }
     }
 
-    return functionCall;
+    return {functionCall, consumedTokens};
 }
 
 enum class FunctionDefinitionState {
@@ -37,106 +66,143 @@ enum class FunctionDefinitionState {
     body,
 };
 
-auto parse_function_definition(Buffer<std::vector<Token>>& tokens)
-    -> FunctionDefinition {
+auto parse_function_definition(Buffer<std::vector<Token>>& tokens,
+                               Diagnostics& diagnostics) -> Node {
     FunctionDefinition functionDefinition{};
+    std::vector<Token> consumedTokens{};
 
     auto state = FunctionDefinitionState::none;
 
-    assert(tokens.pop().type == TokenType::function);
+    std::cout << "parse_function_definition" << std::endl;
+
+    auto token = tokens.peek();
+    if (token.type != TokenType::function) {
+        diagnostics.push_error("Expected function keyword", token.source);
+    }
+    tokens.pop();
 
     while (!tokens.empty()) {
+        token = tokens.peek();
         switch (state) {
         case FunctionDefinitionState::none: {
-            switch (tokens.peek().type) {
+            switch (token.type) {
             case TokenType::identifier: {
                 auto identifier = tokens.pop();
+                consumedTokens.push_back(identifier);
                 functionDefinition.name =
                     std::get<std::string>(identifier.value);
                 state = FunctionDefinitionState::parameters_start;
             } break;
             default:
-                assert(false);
+                diagnostics.push_error(
+                    "Expected function name for function definition",
+                    token.source);
                 break;
             }
         } break;
         case FunctionDefinitionState::parameters_start: {
-            switch (tokens.peek().type) {
+            switch (token.type) {
             case TokenType::paren_open:
-                tokens.pop();
+                consumedTokens.push_back(tokens.pop());
                 state = FunctionDefinitionState::parameters;
                 break;
             default:
-                assert(false);
+                diagnostics.push_error(
+                    "Expected parameter list for function definition",
+                    token.source);
                 break;
             }
         } break;
         case FunctionDefinitionState::parameters: {
-            switch (tokens.peek().type) {
+            switch (token.type) {
             case TokenType::identifier: {
                 auto identifier = tokens.pop();
+                consumedTokens.push_back(identifier);
                 functionDefinition.arguments.emplace_back(
                     NodeType::identifier,
-                    std::get<std::string>(identifier.value));
+                    std::get<std::string>(identifier.value),
+                    std::vector<Token>{identifier});
             } break;
             case TokenType::string_literal: {
                 auto string = tokens.pop();
+                consumedTokens.push_back(string);
                 functionDefinition.arguments.emplace_back(
                     NodeType::string_literal,
-                    std::get<std::string>(string.value));
+                    std::get<std::string>(string.value),
+                    std::vector<Token>{string});
             } break;
             case TokenType::paren_close: {
-                tokens.pop();
+                consumedTokens.push_back(tokens.pop());
                 state = FunctionDefinitionState::body_start;
             } break;
             default: {
-                assert(false);
+                consumedTokens.push_back(tokens.pop());
+                diagnostics.push_error(
+                    "Unexpected token while parsing function parameters: " +
+                        tokenTypeToString(token.type),
+                    token.source);
             } break;
             }
         } break;
         case FunctionDefinitionState::body_start: {
-            switch (tokens.peek().type) {
+            switch (token.type) {
             case TokenType::curly_open:
-                tokens.pop();
+                consumedTokens.push_back(tokens.pop());
                 state = FunctionDefinitionState::body;
                 break;
             default:
-                assert(false);
+                diagnostics.push_error(
+                    "Expected function body for function definition",
+                    token.source);
                 break;
             }
         } break;
         case FunctionDefinitionState::body: {
-            functionDefinition.body = parse_expression(tokens);
-            auto body = tokens.pop();
-            assert(body.type == TokenType::curly_close);
-            return functionDefinition;
+            std::vector<Node> body{};
+            while (token.type != TokenType::curly_close && !tokens.empty()) {
+                body.push_back(parse_expression(tokens, diagnostics));
+                token = tokens.peek();
+            }
+            functionDefinition.body = body;
+            if (tokens.empty()) {
+                diagnostics.push_error(
+                    "Expected function body to end with curly close",
+                    token.source);
+            } else {
+                consumedTokens.push_back(tokens.pop());
+            }
+            return {functionDefinition, consumedTokens};
         }
         default:
             break;
         }
     }
 
-    return functionDefinition;
+    return {functionDefinition, consumedTokens};
 }
-auto parse_expression(Buffer<std::vector<Token>>& tokens) -> std::vector<Node> {
-    std::vector<Node> expression{};
 
+auto parse_expression(Buffer<std::vector<Token>>& tokens,
+                      Diagnostics& diagnostics) -> Node {
+    std::cout << "parse_expression: " << tokens.peek() << std::endl;
+
+    switch (tokens.peek().type) {
+    case TokenType::identifier:
+        return parse_function_call(tokens, diagnostics);
+    case TokenType::function:
+        return parse_function_definition(tokens, diagnostics);
+    default:
+        auto token = tokens.pop();
+        diagnostics.push_error(
+            "Unexpected token: " + tokenTypeToString(token.type), token.source);
+        return Node{"unknown", std::vector<Token>{}};
+    }
+}
+
+auto Parser::parse(Buffer<std::vector<Token>> tokens, Diagnostics& diagnostics)
+    -> std::vector<Node> {
+    std::vector<Node> expressions{};
     while (!tokens.empty()) {
-        switch (tokens.peek().type) {
-        case TokenType::identifier:
-            expression.emplace_back(parse_function_call(tokens));
-            break;
-        case TokenType::function:
-            expression.emplace_back(parse_function_definition(tokens));
-            break;
-        default:
-            return expression;
-        }
+        expressions.push_back(parse_expression(tokens, diagnostics));
     }
-
-    return expression;
-}
-
-auto Parser::parse(Buffer<std::vector<Token>> tokens) -> std::vector<Node> {
-    return parse_expression(tokens);
+    return expressions;
 }

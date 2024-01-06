@@ -6,6 +6,9 @@ cc_library(
         "token.h",
     ],
     visibility = ["//visibility:public"],
+    deps = [
+        "//core/util:source",
+    ],
 )
 
 cc_library(
@@ -20,6 +23,7 @@ cc_library(
     deps = [
         ":token",
         "//core/util:buffer",
+        "//core/util:diagnostics",
     ],
 )
 

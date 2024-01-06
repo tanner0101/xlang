@@ -8,20 +8,23 @@
 #include <variant>
 #include <vector>
 
+#include "../lexer/token.h"
+
 using NodeValue = std::variant<std::string, FunctionDefinition, FunctionCall>;
 
 struct Node {
     NodeType type;
     NodeValue value;
+    std::vector<Token> tokens;
 
-    Node(NodeType type, NodeValue value)
-        : type{type}, value{std::move(value)} {}
-    Node(FunctionCall functionCall)
-        : Node(NodeType::function_call, functionCall) {}
-    Node(FunctionDefinition functionDefinition)
-        : Node(NodeType::function_definition, functionDefinition) {}
-    Node(const char* string)
-        : Node(NodeType::string_literal, std::string(string)) {}
+    Node(NodeType type, NodeValue value, std::vector<Token> tokens)
+        : type{type}, value{std::move(value)}, tokens{std::move(tokens)} {}
+    Node(FunctionCall functionCall, std::vector<Token> tokens)
+        : Node(NodeType::function_call, functionCall, tokens) {}
+    Node(FunctionDefinition functionDefinition, std::vector<Token> tokens)
+        : Node(NodeType::function_definition, functionDefinition, tokens) {}
+    Node(const char* string, std::vector<Token> tokens)
+        : Node(NodeType::string_literal, std::string(string), tokens) {}
 };
 
 inline auto operator<<(std::ostream& os, Node node) -> std::ostream& {

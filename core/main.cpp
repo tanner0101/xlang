@@ -14,10 +14,17 @@ auto main() -> int {
         program += line + "\n";
     }
 
-    const auto tokens = lexer.lex(program);
-    const auto ast = parser.parse(tokens);
+    auto diagnostics = Diagnostics{};
+
+    const auto tokens = lexer.lex(program, diagnostics);
+    const auto ast = parser.parse(tokens, diagnostics);
     const auto ir = compiler.compile(ast);
     std::cout << ir << std::endl;
+
+    // TODO: make diagnostics an iterable
+    for (const auto& diagnostic : diagnostics) {
+        std::cerr << diagnostic.message << std::endl;
+    }
 
     return 0;
 }
