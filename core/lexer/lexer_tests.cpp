@@ -1,6 +1,8 @@
 #include "lexer.h"
 #include <gtest/gtest.h>
 
+using namespace xlang;
+
 Lexer lexer{};
 
 TEST(LexerTest, TestTokenization) {

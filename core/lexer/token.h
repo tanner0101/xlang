@@ -5,7 +5,9 @@
 #include <string>
 #include <variant>
 
-#include "../util/source.h"
+#include "core/util/source.h"
+
+namespace xlang {
 
 enum class TokenType {
     function,
@@ -68,4 +70,6 @@ inline auto operator<<(std::ostream& os, const Token& token) -> std::ostream& {
 
 inline auto operator==(const Token& lhs, const Token& rhs) -> bool {
     return lhs.type == rhs.type && lhs.value == rhs.value;
+}
+
 }

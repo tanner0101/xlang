@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../parser/node.h"
-#include "../util/buffer.h"
-#include "../util/diagnostics.h"
+#include "core/parser/node.h"
+#include "core/util/buffer.h"
+#include "core/util/diagnostics.h"
 #include <vector>
 
 namespace xlang {

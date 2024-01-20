@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+namespace xlang {
+
 enum class DiagnosticType {
     error,
     warning,
@@ -46,3 +48,5 @@ class Diagnostics {
   private:
     std::vector<Diagnostic> diagnostics;
 };
+
+} // namespace xlang

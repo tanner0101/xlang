@@ -2,6 +2,8 @@
 
 #include <string>
 
+namespace xlang {
+
 enum class NodeType {
     identifier,
     function_definition,
@@ -23,3 +25,5 @@ inline auto nodeTypeToString(NodeType nodeType) -> std::string {
         return "unknown";
     }
 }
+
+} // namespace xlang

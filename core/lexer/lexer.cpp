@@ -1,6 +1,8 @@
 #include "lexer.h"
 #include <cassert>
 
+using namespace xlang;
+
 auto Lexer::lex(Buffer<std::string> input, Diagnostics& diagnostics)
     -> std::vector<Token> {
     std::vector<Token> tokens{};

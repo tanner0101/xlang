@@ -8,7 +8,9 @@
 #include <variant>
 #include <vector>
 
-#include "../lexer/token.h"
+#include "core/lexer/token.h"
+
+namespace xlang {
 
 using NodeValue = std::variant<std::string, FunctionDefinition, FunctionCall>;
 
@@ -82,3 +84,5 @@ inline auto operator==(const Node& lhs, const Node& rhs) -> bool {
 
     return false;
 }
+
+} // namespace xlang

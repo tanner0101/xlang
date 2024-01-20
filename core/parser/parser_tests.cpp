@@ -1,6 +1,9 @@
 #include "parser.h"
 #include <gtest/gtest.h>
 
+using namespace xlang;
+using namespace xlang;
+
 Parser parser{};
 
 TEST(ParserTest, TestParsing) {

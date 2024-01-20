@@ -3,7 +3,7 @@
         {
             "name": "C++23",
             "includePath": [
-                // "${workspaceFolder}/**",
+                "${workspaceFolder}",
                 // "/usr/include/c++/11",
                 "/usr/lib/llvm-14/include",
                 "/usr/local/include",

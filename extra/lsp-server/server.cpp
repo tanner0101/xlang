@@ -1,6 +1,6 @@
-#include "../../core/compiler/compiler.h"
-#include "../../core/lexer/lexer.h"
-#include "../../core/parser/parser.h"
+#include "core/compiler/compiler.h"
+#include "core/lexer/lexer.h"
+#include "core/parser/parser.h"
 #include <boost/asio.hpp>
 #include <boost/json.hpp>
 #include <fstream>
@@ -46,18 +46,18 @@ auto parseRequest(std::string const& data) -> std::optional<Request> {
                    .params = json.at("params").as_object()};
 }
 
-auto convertDiagnostics(Diagnostics diagnostics) -> boost::json::array {
+auto convertDiagnostics(xlang::Diagnostics diagnostics) -> boost::json::array {
     auto result = boost::json::array{};
     for (const auto& diagnostic : diagnostics) {
         auto severity = 0;
         switch (diagnostic.type) {
-        case DiagnosticType::error:
+        case xlang::DiagnosticType::error:
             severity = 1;
             break;
-        case DiagnosticType::warning:
+        case xlang::DiagnosticType::warning:
             severity = 2;
             break;
-        case DiagnosticType::note:
+        case xlang::DiagnosticType::note:
             severity = 3;
             break;
         }
@@ -77,15 +77,15 @@ auto convertDiagnostics(Diagnostics diagnostics) -> boost::json::array {
 }
 
 struct Context {
-    Parser parser;
-    Lexer lexer;
+    xlang::Parser parser;
+    xlang::Lexer lexer;
     xlang::Compiler compiler;
     std::unordered_map<std::string, std::string> files;
 };
 
 auto publishDiagnostics(Context ctx, std::string uri, std::string file)
     -> boost::json::object {
-    auto diagnostics = Diagnostics{};
+    auto diagnostics = xlang::Diagnostics{};
     auto tokens = ctx.lexer.lex(file, diagnostics);
     auto ast = ctx.parser.parse(tokens, diagnostics);
     ctx.compiler.compile(ast, diagnostics);
@@ -119,7 +119,7 @@ auto handle(Request request, Context& ctx)
             request.params.at("textDocument").at("uri").as_string().c_str();
 
         auto data = boost::json::array{};
-        auto diagnostics = Diagnostics{};
+        auto diagnostics = xlang::Diagnostics{};
         const auto tokens = ctx.lexer.lex(ctx.files[uri], diagnostics);
 
         int previousLine = 0;
@@ -135,14 +135,14 @@ auto handle(Request request, Context& ctx)
             int modifier = 0;
 
             switch (token.type) {
-            case TokenType::function:
+            case xlang::TokenType::function:
                 length = 2;
                 break;
-            case TokenType::identifier:
+            case xlang::TokenType::identifier:
                 length = std::get<std::string>(token.value).size();
                 type = 1;
                 break;
-            case TokenType::string_literal:
+            case xlang::TokenType::string_literal:
                 length = std::get<std::string>(token.value).size() + 2;
                 type = 2;
                 modifier = 1;

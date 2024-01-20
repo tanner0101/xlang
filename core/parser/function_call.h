@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 
+namespace xlang {
+
 struct Node;
 
 struct FunctionCall {
@@ -14,3 +16,5 @@ inline auto operator==(const FunctionCall& lhs, const FunctionCall& rhs)
     -> bool {
     return lhs.name == rhs.name && lhs.arguments == rhs.arguments;
 }
+
+} // namespace xlang

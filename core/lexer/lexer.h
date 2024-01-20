@@ -1,11 +1,13 @@
 #pragma once
 
-#include "../util/buffer.h"
-#include "../util/diagnostics.h"
+#include "core/util/buffer.h"
+#include "core/util/diagnostics.h"
 #include "token.h"
 #include <optional>
 #include <string>
 #include <vector>
+
+namespace xlang {
 
 enum class LexerState {
     none,
@@ -30,3 +32,5 @@ class Lexer {
 
     void printTokens();
 };
+
+} // namespace xlang

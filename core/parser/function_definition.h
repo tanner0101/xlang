@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 
+namespace xlang {
+
 struct Node;
 
 struct FunctionDefinition {
@@ -16,3 +18,5 @@ inline auto operator==(const FunctionDefinition& lhs,
     return lhs.name == rhs.name && lhs.arguments == rhs.arguments &&
            lhs.body == rhs.body;
 }
+
+} // namespace xlang

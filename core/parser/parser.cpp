@@ -1,5 +1,7 @@
 #include "parser.h"
 
+using namespace xlang;
+
 auto parse_expression(Buffer<std::vector<Token>>& tokens,
                       Diagnostics& diagnostics) -> Node;
 

@@ -4,10 +4,12 @@
 
 #include <iostream>
 
+using namespace xlang;
+
 auto main() -> int {
     Lexer lexer{};
     Parser parser{};
-    xlang::Compiler compiler{};
+    Compiler compiler{};
 
     std::string program, line;
     while (std::getline(std::cin, line)) {

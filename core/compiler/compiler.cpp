@@ -3,6 +3,9 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
 
+using namespace xlang;
+using namespace xlang;
+
 auto generateIR(const Node& node, llvm::Module& module,
                 llvm::IRBuilder<>& builder, Diagnostics& diagnostics)
     -> llvm::Value* {
@@ -64,8 +67,8 @@ auto generateIR(const Node& node, llvm::Module& module,
     return nullptr;
 }
 
-auto xlang::Compiler::compile(Buffer<std::vector<Node>> ast,
-                              Diagnostics& diagnostics) -> std::string {
+auto Compiler::compile(Buffer<std::vector<Node>> ast, Diagnostics& diagnostics)
+    -> std::string {
     llvm::LLVMContext context;
     llvm::Module module("xlang", context);
     llvm::IRBuilder<> builder(context);

@@ -5,6 +5,8 @@
 #include <cstddef>
 #include <optional>
 
+namespace xlang {
+
 template <typename T>
 concept Container = requires(T t, size_t i) {
     { t.size() } -> std::convertible_to<size_t>;
@@ -40,3 +42,5 @@ template <Container T> class Buffer {
         return position >= storage.size();
     }
 };
+
+} // namespace xlang

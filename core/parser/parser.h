@@ -1,10 +1,12 @@
 #pragma once
 
-#include "../lexer/token.h"
-#include "../util/buffer.h"
-#include "../util/diagnostics.h"
+#include "core/lexer/token.h"
+#include "core/util/buffer.h"
+#include "core/util/diagnostics.h"
 #include "node.h"
 #include <vector>
+
+namespace xlang {
 
 class Parser {
   public:
@@ -16,3 +18,5 @@ class Parser {
     auto parse(Buffer<std::vector<Token>> tokens, Diagnostics& diagnostics)
         -> std::vector<Node>;
 };
+
+} // namespace xlang

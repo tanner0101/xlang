@@ -1,7 +1,11 @@
 #include "compiler.h"
 #include <gtest/gtest.h>
 
-xlang::Compiler compiler{};
+using namespace xlang;
+using namespace xlang;
+using namespace xlang;
+
+Compiler compiler{};
 
 TEST(CompilerTest, TestCompile) {
     auto diagnostics = Diagnostics();
