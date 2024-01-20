@@ -69,6 +69,28 @@ enum class FunctionDefinitionState {
     body,
 };
 
+inline auto functionDefinitionStateToString(FunctionDefinitionState value)
+    -> std::string {
+#define FUNCTION_DEFINITION_STATE_CASE(name)                                   \
+    case FunctionDefinitionState::name:                                        \
+        return #name
+
+    switch (value) {
+        FUNCTION_DEFINITION_STATE_CASE(none);
+        FUNCTION_DEFINITION_STATE_CASE(parameters_start);
+        FUNCTION_DEFINITION_STATE_CASE(parameters);
+        FUNCTION_DEFINITION_STATE_CASE(body_start);
+        FUNCTION_DEFINITION_STATE_CASE(body);
+    default:
+        return "unknown";
+    }
+}
+
+inline auto operator<<(std::ostream& os, FunctionDefinitionState value)
+    -> std::ostream& {
+    return os << functionDefinitionStateToString(value);
+}
+
 auto parse_function_definition(Buffer<std::vector<Token>>& tokens,
                                Diagnostics& diagnostics) -> Node {
     FunctionDefinition functionDefinition{};
@@ -86,7 +108,7 @@ auto parse_function_definition(Buffer<std::vector<Token>>& tokens,
 
     while (!tokens.empty()) {
         token = tokens.peek();
-        std::cerr << "  " << token << std::endl;
+        std::cerr << state << "  " << token << std::endl;
         switch (state) {
         case FunctionDefinitionState::none: {
             switch (token.type) {
@@ -101,7 +123,7 @@ auto parse_function_definition(Buffer<std::vector<Token>>& tokens,
                 diagnostics.push_error(
                     "Expected function name for function definition",
                     token.source);
-                break;
+                return {functionDefinition, consumedTokens};
             }
         } break;
         case FunctionDefinitionState::parameters_start: {
@@ -114,7 +136,7 @@ auto parse_function_definition(Buffer<std::vector<Token>>& tokens,
                 diagnostics.push_error(
                     "Expected parameter list for function definition",
                     token.source);
-                break;
+                return {functionDefinition, consumedTokens};
             }
         } break;
         case FunctionDefinitionState::parameters: {
@@ -139,13 +161,12 @@ auto parse_function_definition(Buffer<std::vector<Token>>& tokens,
                 consumedTokens.push_back(tokens.pop());
                 state = FunctionDefinitionState::body_start;
             } break;
-            default: {
-                consumedTokens.push_back(tokens.pop());
+            default:
                 diagnostics.push_error(
                     "Unexpected token while parsing function parameters: " +
                         tokenTypeToString(token.type),
                     token.source);
-            } break;
+                return {functionDefinition, consumedTokens};
             }
         } break;
         case FunctionDefinitionState::body_start: {
@@ -158,26 +179,27 @@ auto parse_function_definition(Buffer<std::vector<Token>>& tokens,
                 diagnostics.push_error(
                     "Expected function body for function definition",
                     token.source);
-                break;
+                return {functionDefinition, consumedTokens};
             }
         } break;
         case FunctionDefinitionState::body: {
-            std::vector<Node> body{};
-            while (token.type != TokenType::curly_close && !tokens.empty()) {
-                body.push_back(parse_expression(tokens, diagnostics));
+            functionDefinition.body = {};
+            while (true) {
+                if (tokens.empty()) {
+                    diagnostics.push_error(
+                        "Expected function body to end with curly close",
+                        token.source);
+                    return {functionDefinition, consumedTokens};
+                }
                 token = tokens.peek();
+                if (token.type == TokenType::curly_close) {
+                    tokens.pop();
+                    consumedTokens.push_back(token);
+                    return {functionDefinition, consumedTokens};
+                }
+                functionDefinition.body.push_back(
+                    parse_expression(tokens, diagnostics));
             }
-
-            std::cerr << "closing function body" << std::endl;
-            functionDefinition.body = body;
-            if (tokens.empty()) {
-                diagnostics.push_error(
-                    "Expected function body to end with curly close",
-                    token.source);
-            } else {
-                consumedTokens.push_back(tokens.pop());
-            }
-            return {functionDefinition, consumedTokens};
         }
         default:
             break;

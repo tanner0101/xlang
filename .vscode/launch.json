@@ -77,6 +77,33 @@
             "preLaunchTask": "build"
         },
         {
+            "name": "//xlang/hello_world.x",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bazel-bin/core/xlang",
+            "args": [
+                "${workspaceFolder}/hello_world.x"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build"
+        },
+        {
             "name": "//extra/vscode-ext",
             "type": "extensionHost",
             "request": "launch",

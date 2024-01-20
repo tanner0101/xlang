@@ -1,3 +1,7 @@
+fn bar() {
+    qux(asdf)
+}
+
 fn foo() {
     printf("hello, ")
     bar()
