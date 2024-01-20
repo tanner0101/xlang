@@ -11,6 +11,7 @@ cc_library(
         "//core/parser",
         "//core/parser:node",
         "//core/util:buffer",
+        "//core/util:diagnostics",
         "@llvm",
     ],
 )

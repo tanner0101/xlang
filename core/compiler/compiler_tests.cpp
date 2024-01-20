@@ -4,6 +4,7 @@
 xlang::Compiler compiler{};
 
 TEST(CompilerTest, TestCompile) {
+    auto diagnostics = Diagnostics();
     auto ast = std::vector<Node>{
         {FunctionDefinition{
              "main", std::vector<Node>{},
@@ -13,7 +14,7 @@ TEST(CompilerTest, TestCompile) {
                                    {"Hello, world!", std::vector<Token>{}}}},
                   std::vector<Token>{}}}},
          std::vector<Token>{}}};
-    const auto lli = compiler.compile(ast);
+    const auto lli = compiler.compile(ast, diagnostics);
     ASSERT_EQ(lli, R"(; ModuleID = 'xlang'
 source_filename = "xlang"
 

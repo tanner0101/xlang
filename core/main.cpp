@@ -18,12 +18,13 @@ auto main() -> int {
 
     const auto tokens = lexer.lex(program, diagnostics);
     const auto ast = parser.parse(tokens, diagnostics);
-    const auto ir = compiler.compile(ast);
+    const auto ir = compiler.compile(ast, diagnostics);
     std::cout << ir << std::endl;
 
     // TODO: make diagnostics an iterable
     for (const auto& diagnostic : diagnostics) {
-        std::cerr << diagnostic.message << std::endl;
+        std::cerr << diagnostic.message << " (" << diagnostic.source << ")"
+                  << std::endl;
     }
 
     return 0;

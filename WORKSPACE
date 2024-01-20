@@ -31,7 +31,6 @@ cc_library(
     hdrs = glob(["boost/**/*.hpp"]),
     includes = ["."],
     linkopts = [
-        "-static",
         "-L/usr/local/lib",
         "-lboost_system",
         "-lboost_json",

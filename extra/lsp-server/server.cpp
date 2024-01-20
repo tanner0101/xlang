@@ -1,3 +1,4 @@
+#include "../../core/compiler/compiler.h"
 #include "../../core/lexer/lexer.h"
 #include "../../core/parser/parser.h"
 #include <boost/asio.hpp>
@@ -19,7 +20,7 @@ auto serializeResponse(boost::json::object result, int id) -> std::string {
     }
 
     auto json = boost::json::serialize(message);
-    std::cout << json << std::endl;
+    std::cerr << json << std::endl;
     std::stringstream ss;
     ss << "Content-Length: " << json.size() << "\r\n\r\n";
     ss << json;
@@ -78,6 +79,7 @@ auto convertDiagnostics(Diagnostics diagnostics) -> boost::json::array {
 struct Context {
     Parser parser;
     Lexer lexer;
+    xlang::Compiler compiler;
     std::unordered_map<std::string, std::string> files;
 };
 
@@ -85,7 +87,8 @@ auto publishDiagnostics(Context ctx, std::string uri, std::string file)
     -> boost::json::object {
     auto diagnostics = Diagnostics{};
     auto tokens = ctx.lexer.lex(file, diagnostics);
-    ctx.parser.parse(tokens, diagnostics);
+    auto ast = ctx.parser.parse(tokens, diagnostics);
+    ctx.compiler.compile(ast, diagnostics);
     return boost::json::object{
         {"method", "textDocument/publishDiagnostics"},
         {"params",
@@ -216,7 +219,7 @@ auto main() -> int {
 
                 const auto requestString =
                     std::string(buffer.substr(pos + 4, contentLength));
-                std::cout << requestString << std::endl;
+                std::cerr << requestString << std::endl;
                 const auto requestOpt = parseRequest(requestString);
                 if (!requestOpt.has_value())
                     continue;

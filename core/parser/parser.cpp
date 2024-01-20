@@ -8,9 +8,10 @@ auto parse_function_call(Buffer<std::vector<Token>>& tokens,
     FunctionCall functionCall{};
     std::vector<Token> consumedTokens{};
 
-    std::cout << "parse_function_call" << std::endl;
+    std::cerr << "parse_function_call" << std::endl;
 
     auto token = tokens.pop();
+    consumedTokens.push_back(token);
     if (token.type != TokenType::identifier) {
         diagnostics.push_error("Expected function call identifier",
                                token.source);
@@ -18,14 +19,15 @@ auto parse_function_call(Buffer<std::vector<Token>>& tokens,
     }
     functionCall.name = std::get<std::string>(token.value);
 
-    token = tokens.pop();
-    if (token.type != TokenType::paren_open) {
+    if (tokens.empty() || tokens.peek().type != TokenType::paren_open) {
         diagnostics.push_error("Expected function arguments", token.source);
         return {functionCall, consumedTokens};
     }
+    tokens.pop();
 
     while (!tokens.empty()) {
         token = tokens.peek();
+        std::cerr << "  " << token << std::endl;
         switch (token.type) {
         case TokenType::string_literal: {
             const auto string = tokens.pop();
@@ -37,7 +39,6 @@ auto parse_function_call(Buffer<std::vector<Token>>& tokens,
         case TokenType::paren_close:
             consumedTokens.push_back(tokens.pop());
             return {functionCall, consumedTokens};
-
         case TokenType::identifier: {
             const auto identifier = tokens.pop();
             consumedTokens.push_back(identifier);
@@ -73,7 +74,7 @@ auto parse_function_definition(Buffer<std::vector<Token>>& tokens,
 
     auto state = FunctionDefinitionState::none;
 
-    std::cout << "parse_function_definition" << std::endl;
+    std::cerr << "parse_function_definition" << std::endl;
 
     auto token = tokens.peek();
     if (token.type != TokenType::function) {
@@ -83,6 +84,7 @@ auto parse_function_definition(Buffer<std::vector<Token>>& tokens,
 
     while (!tokens.empty()) {
         token = tokens.peek();
+        std::cerr << "  " << token << std::endl;
         switch (state) {
         case FunctionDefinitionState::none: {
             switch (token.type) {
@@ -163,6 +165,8 @@ auto parse_function_definition(Buffer<std::vector<Token>>& tokens,
                 body.push_back(parse_expression(tokens, diagnostics));
                 token = tokens.peek();
             }
+
+            std::cerr << "closing function body" << std::endl;
             functionDefinition.body = body;
             if (tokens.empty()) {
                 diagnostics.push_error(
@@ -183,7 +187,7 @@ auto parse_function_definition(Buffer<std::vector<Token>>& tokens,
 
 auto parse_expression(Buffer<std::vector<Token>>& tokens,
                       Diagnostics& diagnostics) -> Node {
-    std::cout << "parse_expression: " << tokens.peek() << std::endl;
+    std::cerr << "parse_expression: " << tokens.peek() << std::endl;
 
     switch (tokens.peek().type) {
     case TokenType::identifier:
@@ -202,6 +206,7 @@ auto Parser::parse(Buffer<std::vector<Token>> tokens, Diagnostics& diagnostics)
     -> std::vector<Node> {
     std::vector<Node> expressions{};
     while (!tokens.empty()) {
+        std::cerr << "parse" << std::endl;
         expressions.push_back(parse_expression(tokens, diagnostics));
     }
     return expressions;

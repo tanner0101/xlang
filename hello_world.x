@@ -1,8 +1,9 @@
-fn main() {
-    print("world!")
-    foo(bar)
+fn foo() {
+    printf("hello, ")
+    bar()
 }
 
-fn test() {
-    print("hello")
+fn main() {
+    foo()
+    printf("world!")
 }
