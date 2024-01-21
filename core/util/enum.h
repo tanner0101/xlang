@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <string>
 
 #define ENUM_CLASS(name, ...)                                                  \
     enum class name { __VA_ARGS__, count };                                    \

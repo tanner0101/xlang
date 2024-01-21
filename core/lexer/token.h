@@ -23,6 +23,8 @@ struct Token {
     Token(TokenType type, Source source) : type{type}, source{source} {}
     Token(TokenType type, std::string string, Source source)
         : type{type}, value(string), source{source} {}
+
+    auto operator==(const Token& other) const -> bool = default;
 };
 
 inline auto operator<<(std::ostream& os, const Token& token) -> std::ostream& {
@@ -35,11 +37,8 @@ inline auto operator<<(std::ostream& os, const Token& token) -> std::ostream& {
     default:
         break;
     }
+    os << " @" << token.source;
     return os;
-}
-
-inline auto operator==(const Token& lhs, const Token& rhs) -> bool {
-    return lhs.type == rhs.type && lhs.value == rhs.value;
 }
 
 } // namespace xlang

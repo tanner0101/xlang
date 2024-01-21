@@ -20,16 +20,14 @@ struct FunctionCall {
     std::string name;
     std::vector<Node> arguments;
 
-    struct Trivia {
+    struct Tokens {
         Token identifier;
+        auto operator==(const Tokens& other) const -> bool = default;
     };
-    Trivia trivia;
-};
+    Tokens tokens;
 
-inline auto operator==(const FunctionCall& lhs, const FunctionCall& rhs)
-    -> bool {
-    return lhs.name == rhs.name && lhs.arguments == rhs.arguments;
-}
+    auto operator==(const FunctionCall& other) const -> bool = default;
+};
 
 struct FunctionDefinition {
     std::string name;
@@ -38,78 +36,56 @@ struct FunctionDefinition {
         std::string name;
         std::string type;
 
-        struct Trivia {
+        struct Tokens {
             Token identifier;
             Token colon;
             Token type;
+            auto operator==(const Tokens& other) const -> bool = default;
         };
-        Trivia trivia;
+        Tokens tokens;
+
+        auto operator==(const Parameter& other) const -> bool = default;
     };
     std::vector<Parameter> parameters;
 
     std::vector<Node> body;
 
-    struct Trivia {
+    struct Tokens {
         Token keyword;
         Token identifier;
+        auto operator==(const Tokens& other) const -> bool = default;
     };
-    Trivia trivia;
+    Tokens tokens;
+
+    auto operator==(const FunctionDefinition& other) const -> bool = default;
 };
-
-inline auto operator==(const FunctionDefinition::Parameter& lhs,
-                       const FunctionDefinition::Parameter& rhs) -> bool {
-    return lhs.name == rhs.name && lhs.type == rhs.type;
-}
-
-inline auto operator==(const FunctionDefinition& lhs,
-                       const FunctionDefinition& rhs) -> bool {
-    return lhs.name == rhs.name && lhs.parameters == rhs.parameters &&
-           lhs.body == rhs.body;
-}
 
 struct VariableDefinition {
     std::string name;
     std::shared_ptr<Node> value;
 
-    struct Trivia {
+    struct Tokens {
         Token keyword;
         Token identifier;
         Token assignment;
+        auto operator==(const Tokens& other) const -> bool = default;
     };
-    Trivia trivia;
-};
+    Tokens tokens;
 
-inline auto operator==(const VariableDefinition& lhs,
-                       const VariableDefinition& rhs) -> bool {
-    return lhs.name == rhs.name && lhs.value == rhs.value;
-}
+    auto operator==(const VariableDefinition& other) const -> bool = default;
+};
 
 struct Identifier {
     std::string name;
-
-    struct Trivia {
-        Token token;
-    };
-    Trivia trivia;
+    Token token;
+    auto operator==(const Identifier& other) const -> bool = default;
 };
-
-inline auto operator==(const Identifier& lhs, const Identifier& rhs) -> bool {
-    return lhs.name == rhs.name;
-}
 
 struct StringLiteral {
     std::string value;
-
-    struct Trivia {
-        Token token;
-    };
-    Trivia trivia;
+    Token token;
+    auto operator==(const StringLiteral& other) const -> bool = default;
 };
-
-inline auto operator==(const StringLiteral& lhs, const StringLiteral& rhs)
-    -> bool {
-    return lhs.value == rhs.value;
-}
 
 using NodeValue = std::variant<StringLiteral, Identifier, FunctionDefinition,
                                FunctionCall, VariableDefinition>;

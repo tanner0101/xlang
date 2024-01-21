@@ -148,42 +148,41 @@ auto semanticNode(xlang::Node node, boost::json::array& data,
     switch (node.type) {
     case xlang::NodeType::variable_definition: {
         auto vardef = std::get<xlang::VariableDefinition>(node.value);
-        semanticToken(vardef.trivia.keyword, 3, SemanticTokenType::keyword,
+        semanticToken(vardef.tokens.keyword, 3, SemanticTokenType::keyword,
                       SemanticTokenModifier::none, data, previous);
         semanticToken(
-            vardef.trivia.identifier,
-            std::get<std::string>(vardef.trivia.identifier.value).length(),
+            vardef.tokens.identifier,
+            std::get<std::string>(vardef.tokens.identifier.value).length(),
             SemanticTokenType::variable, SemanticTokenModifier::none, data,
             previous);
         semanticNode(*vardef.value, data, previous);
     } break;
     case xlang::NodeType::string_literal: {
         auto stringLiteral = std::get<xlang::StringLiteral>(node.value);
-        semanticToken(stringLiteral.trivia.token,
-                      stringLiteral.value.length() + 2,
+        semanticToken(stringLiteral.token, stringLiteral.value.length() + 2,
                       SemanticTokenType::string, SemanticTokenModifier::none,
                       data, previous);
     } break;
     case xlang::NodeType::identifier: {
         auto identifier = std::get<xlang::Identifier>(node.value);
-        semanticToken(identifier.trivia.token, identifier.name.length(),
+        semanticToken(identifier.token, identifier.name.length(),
                       SemanticTokenType::variable, SemanticTokenModifier::none,
                       data, previous);
     } break;
     case xlang::NodeType::function_definition: {
         auto fundef = std::get<xlang::FunctionDefinition>(node.value);
-        semanticToken(fundef.trivia.keyword, 2, SemanticTokenType::keyword,
+        semanticToken(fundef.tokens.keyword, 2, SemanticTokenType::keyword,
                       SemanticTokenModifier::none, data, previous);
         semanticToken(
-            fundef.trivia.identifier,
-            std::get<std::string>(fundef.trivia.identifier.value).length(),
+            fundef.tokens.identifier,
+            std::get<std::string>(fundef.tokens.identifier.value).length(),
             SemanticTokenType::function, SemanticTokenModifier::none, data,
             previous);
         for (const auto& param : fundef.parameters) {
-            semanticToken(param.trivia.identifier, param.name.length(),
+            semanticToken(param.tokens.identifier, param.name.length(),
                           SemanticTokenType::parameter,
                           SemanticTokenModifier::none, data, previous);
-            semanticToken(param.trivia.type, param.type.length(),
+            semanticToken(param.tokens.type, param.type.length(),
                           SemanticTokenType::type, SemanticTokenModifier::none,
                           data, previous);
         }
@@ -194,8 +193,8 @@ auto semanticNode(xlang::Node node, boost::json::array& data,
     case xlang::NodeType::function_call: {
         auto funcal = std::get<xlang::FunctionCall>(node.value);
         semanticToken(
-            funcal.trivia.identifier,
-            std::get<std::string>(funcal.trivia.identifier.value).length(),
+            funcal.tokens.identifier,
+            std::get<std::string>(funcal.tokens.identifier.value).length(),
             SemanticTokenType::function, SemanticTokenModifier::none, data,
             previous);
         for (const auto& arg : funcal.arguments) {

@@ -69,7 +69,7 @@ auto generateIR(const Node& node, llvm::Module& module,
         if (!func) {
             diagnostics.push_error("No function named " + funcCall.name +
                                        " found",
-                                   funcCall.trivia.identifier.source);
+                                   funcCall.tokens.identifier.source);
             return nullptr;
         }
 
@@ -85,7 +85,7 @@ auto generateIR(const Node& node, llvm::Module& module,
         if (!variable) {
             diagnostics.push_error("No variable named " + identifier.name +
                                        " found",
-                                   identifier.trivia.token.source);
+                                   identifier.token.source);
             return nullptr;
         }
         return builder.CreateLoad(variable->getType()->getPointerElementType(),
