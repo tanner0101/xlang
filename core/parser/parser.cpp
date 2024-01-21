@@ -66,34 +66,33 @@ auto parse_identifier_or_function_call(Token identifier,
     return Node{Identifier{name, {identifier}}};
 }
 
-enum class FunctionDefinitionState {
-    none,
-    parameters_start,
-    parameters,
-    body_start,
-    body,
-};
+auto parse_function_definition_parameter(Token keyword,
+                                         Buffer<std::vector<Token>>& tokens,
+                                         Diagnostics& diagnostics,
+                                         Token previous)
+    -> std::optional<FunctionDefinition::Parameter> {
 
-inline auto functionDefinitionStateToString(FunctionDefinitionState value)
-    -> std::string {
-#define FUNCTION_DEFINITION_STATE_CASE(name)                                   \
-    case FunctionDefinitionState::name:                                        \
-        return #name
+    auto identifier =
+        require_next_token(TokenType::identifier, "Expected argument name",
+                           previous, tokens, diagnostics);
+    if (!identifier.has_value())
+        return std::nullopt;
 
-    switch (value) {
-        FUNCTION_DEFINITION_STATE_CASE(none);
-        FUNCTION_DEFINITION_STATE_CASE(parameters_start);
-        FUNCTION_DEFINITION_STATE_CASE(parameters);
-        FUNCTION_DEFINITION_STATE_CASE(body_start);
-        FUNCTION_DEFINITION_STATE_CASE(body);
-    default:
-        return "unknown";
-    }
-}
+    auto colon = require_next_token(TokenType::colon, "Expected colon",
+                                    identifier.value(), tokens, diagnostics);
+    if (!colon.has_value())
+        return std::nullopt;
 
-inline auto operator<<(std::ostream& os, FunctionDefinitionState value)
-    -> std::ostream& {
-    return os << functionDefinitionStateToString(value);
+    auto type =
+        require_next_token(TokenType::identifier, "Expected argument type",
+                           colon.value(), tokens, diagnostics);
+    if (!type.has_value())
+        return std::nullopt;
+
+    return std::make_optional(FunctionDefinition::Parameter{
+        std::get<std::string>(identifier.value().value),
+        std::get<std::string>(type.value().value),
+        {identifier.value(), colon.value(), type.value()}});
 }
 
 auto parse_function_definition(Token keyword,
@@ -111,7 +110,7 @@ auto parse_function_definition(Token keyword,
     auto parenOpen =
         require_next_token(TokenType::paren_open, "Expected open paren",
                            identifier.value(), tokens, diagnostics);
-    auto arguments = std::vector<Node>{};
+    auto parameters = std::vector<FunctionDefinition::Parameter>{};
     while (true) {
         auto token = tokens.safe_peek();
         if (!token.has_value()) {
@@ -125,13 +124,16 @@ auto parse_function_definition(Token keyword,
             break;
         }
 
-        auto argument = parse_expression(tokens, diagnostics);
-        if (!argument.has_value()) {
-            diagnostics.push_error("Expected function argument",
-                                   parenOpen.value().source);
-            break;
+        if (token.value().type == TokenType::comma) {
+            tokens.pop();
         }
-        arguments.push_back(argument.value());
+
+        auto parameter = parse_function_definition_parameter(
+            keyword, tokens, diagnostics, identifier.value());
+        if (!parameter.has_value())
+            continue;
+
+        parameters.push_back(parameter.value());
     }
 
     require_next_token(TokenType::curly_open, "Expected open curly",
@@ -158,7 +160,7 @@ auto parse_function_definition(Token keyword,
     }
 
     return std::make_optional(Node{FunctionDefinition{
-        name, arguments, body, {keyword, identifier.value()}}});
+        name, parameters, body, {keyword, identifier.value()}}});
 }
 
 auto parse_variable_definition(Buffer<std::vector<Token>>& tokens,
@@ -172,9 +174,9 @@ auto parse_variable_definition(Buffer<std::vector<Token>>& tokens,
 
     std::string name = std::get<std::string>(identifier.value().value);
 
-    auto assignment = require_next_token(TokenType::assignment,
-                                         "Expected variable assignment",
-                                         varToken, tokens, diagnostics);
+    auto assignment =
+        require_next_token(TokenType::equal, "Expected variable assignment",
+                           varToken, tokens, diagnostics);
     if (!assignment.has_value())
         return std::nullopt;
 

@@ -23,7 +23,7 @@ TEST(ParserTest, TestParsing) {
     auto ast = parser.parse(tokens, diagnostics);
     auto expected = std::vector<Node>{{FunctionDefinition{
         "main",
-        std::vector<Node>{},
+        std::vector<FunctionDefinition::Parameter>{},
         std::vector<Node>{{FunctionCall{
             "print",
             std::vector<Node>{StringLiteral{

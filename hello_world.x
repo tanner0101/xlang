@@ -1,10 +1,12 @@
-fn greet() {
+fn greet(name: String) {
     printf("hello ")
-    var name = "world"
     printf(name)
     printf("!")
 }
 
 fn main() {
+    var name = "world"
+    greet(name)
+    greet("tanner")
     greet()
 }

@@ -11,9 +11,9 @@
 
 namespace xlang {
 
-ENUM_CLASS(TokenType, function, variable, assignment, paren_open, paren_close,
-           curly_open, curly_close, identifier, string_literal, new_line,
-           unknown);
+ENUM_CLASS(TokenType, function, variable, equal, colon, comma, paren_open,
+           paren_close, curly_open, curly_close, identifier, string_literal,
+           new_line, unknown);
 
 struct Token {
     TokenType type;

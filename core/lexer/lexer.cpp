@@ -40,7 +40,17 @@ auto Lexer::lex(Buffer<std::string> input, Diagnostics& diagnostics)
                 break;
             case '=':
                 input.pop();
-                tokens.emplace_back(TokenType::assignment, source);
+                tokens.emplace_back(TokenType::equal, source);
+                source.column += 1;
+                break;
+            case ':':
+                input.pop();
+                tokens.emplace_back(TokenType::colon, source);
+                source.column += 1;
+                break;
+            case ',':
+                input.pop();
+                tokens.emplace_back(TokenType::comma, source);
                 source.column += 1;
                 break;
             case '"':

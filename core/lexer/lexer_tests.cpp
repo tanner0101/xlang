@@ -24,7 +24,7 @@ fn main() {
         Token{TokenType::curly_open, source},
         Token{TokenType::variable, source},
         Token{TokenType::identifier, "foo", source},
-        Token{TokenType::assignment, source},
+        Token{TokenType::equal, source},
         Token{TokenType::string_literal, "bar", source},
         Token{TokenType::identifier, "print", source},
         Token{TokenType::paren_open, source},

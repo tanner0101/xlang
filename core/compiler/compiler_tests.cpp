@@ -12,7 +12,7 @@ TEST(CompilerTest, TestCompile) {
     auto tokens = std::vector<Token>{Token{TokenType::identifier, Source{}}};
     auto ast = std::vector<Node>{{FunctionDefinition{
         "main",
-        std::vector<Node>{},
+        std::vector<FunctionDefinition::Parameter>{},
         std::vector<Node>{
             {FunctionCall{"printf",
                           std::vector<Node>{{StringLiteral{

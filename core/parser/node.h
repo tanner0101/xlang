@@ -33,7 +33,20 @@ inline auto operator==(const FunctionCall& lhs, const FunctionCall& rhs)
 
 struct FunctionDefinition {
     std::string name;
-    std::vector<Node> arguments;
+
+    struct Parameter {
+        std::string name;
+        std::string type;
+
+        struct Trivia {
+            Token identifier;
+            Token colon;
+            Token type;
+        };
+        Trivia trivia;
+    };
+    std::vector<Parameter> parameters;
+
     std::vector<Node> body;
 
     struct Trivia {
@@ -43,9 +56,14 @@ struct FunctionDefinition {
     Trivia trivia;
 };
 
+inline auto operator==(const FunctionDefinition::Parameter& lhs,
+                       const FunctionDefinition::Parameter& rhs) -> bool {
+    return lhs.name == rhs.name && lhs.type == rhs.type;
+}
+
 inline auto operator==(const FunctionDefinition& lhs,
                        const FunctionDefinition& rhs) -> bool {
-    return lhs.name == rhs.name && lhs.arguments == rhs.arguments &&
+    return lhs.name == rhs.name && lhs.parameters == rhs.parameters &&
            lhs.body == rhs.body;
 }
 
@@ -130,8 +148,8 @@ inline auto operator<<(std::ostream& os, Node node) -> std::ostream& {
     case NodeType::function_definition: {
         auto functionDefinition = std::get<FunctionDefinition>(node.value);
         os << "(" << functionDefinition.name << ",";
-        for (auto argument : functionDefinition.arguments) {
-            os << argument;
+        for (auto parameter : functionDefinition.parameters) {
+            os << parameter.name << ":" << parameter.type;
         }
         os << ",";
         for (auto body : functionDefinition.body) {

@@ -8,7 +8,7 @@
 #include <optional>
 #include <string>
 
-auto serializeResponse(boost::json::object result, int id) -> std::string {
+auto serializeResponse(boost::json::object result, int64_t id) -> std::string {
     boost::json::object message;
     message["jsonrpc"] = "2.0";
     if (result.contains("params")) {
@@ -98,9 +98,17 @@ auto publishDiagnostics(Context ctx, std::string uri, std::string file)
              {"uri", uri}, {"diagnostics", convertDiagnostics(diagnostics)}}}};
 }
 
-enum class SemanticTokenType { keyword = 0, function, string, variable };
+enum class SemanticTokenType {
+    keyword = 0,
+    function,
+    string,
+    variable,
+    parameter,
+    type
+};
 auto semantic_token_types() -> boost::json::array {
-    return boost::json::array{"keyword", "function", "string", "variable"};
+    return boost::json::array{"keyword",  "function",  "string",
+                              "variable", "parameter", "type"};
 };
 
 enum class SemanticTokenModifier : unsigned int {
@@ -118,9 +126,9 @@ auto semantic_token_modifiers() -> boost::json::array {
     return boost::json::array{"declaration", "defaultLibrary", "static"};
 };
 
-auto semanticToken(xlang::Token token, int length, SemanticTokenType type,
-                   SemanticTokenModifier modifier, boost::json::array& data,
-                   xlang::Source& previous) -> void {
+auto semanticToken(xlang::Token token, std::size_t length,
+                   SemanticTokenType type, SemanticTokenModifier modifier,
+                   boost::json::array& data, xlang::Source& previous) -> void {
     int lineDelta = token.source.line - previous.line;
     int columnDelta =
         lineDelta ? token.source.column : token.source.column - previous.column;
@@ -171,8 +179,13 @@ auto semanticNode(xlang::Node node, boost::json::array& data,
             std::get<std::string>(fundef.trivia.identifier.value).length(),
             SemanticTokenType::function, SemanticTokenModifier::none, data,
             previous);
-        for (const auto& arg : fundef.arguments) {
-            semanticNode(arg, data, previous);
+        for (const auto& param : fundef.parameters) {
+            semanticToken(param.trivia.identifier, param.name.length(),
+                          SemanticTokenType::parameter,
+                          SemanticTokenModifier::none, data, previous);
+            semanticToken(param.trivia.type, param.type.length(),
+                          SemanticTokenType::type, SemanticTokenModifier::none,
+                          data, previous);
         }
         for (const auto& body : fundef.body) {
             semanticNode(body, data, previous);
