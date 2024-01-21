@@ -138,6 +138,7 @@ auto compileNode(const Node& node, llvm::Module& module,
             diagnostics.push_error(
                 "Incorrect number of arguments for function " + funcCall.name,
                 funcCall.tokens.identifier.source);
+            return nullptr;
         } else {
             for (std::size_t i = 0; i < args.size(); i++) {
                 auto value = args[i];
@@ -157,6 +158,7 @@ auto compileNode(const Node& node, llvm::Module& module,
                                                paramName + "', expected " +
                                                paramType->name,
                                            funcCall.tokens.identifier.source);
+                    return nullptr;
                 }
             }
         }
