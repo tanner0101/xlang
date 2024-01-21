@@ -96,6 +96,99 @@ auto publishDiagnostics(Context ctx, std::string uri, std::string file)
              {"uri", uri}, {"diagnostics", convertDiagnostics(diagnostics)}}}};
 }
 
+enum class SemanticTokenType { keyword = 0, function, string, variable };
+auto semantic_token_types() -> boost::json::array {
+    return boost::json::array{"keyword", "function", "string", "variable"};
+};
+
+enum class SemanticTokenModifier : unsigned int {
+    none = 0,
+    declaration = 1 << 0,
+    defaultLibrary = 1 << 1,
+    _static = 1 << 2
+};
+inline auto operator|(SemanticTokenModifier lhs, SemanticTokenModifier rhs)
+    -> SemanticTokenModifier {
+    return static_cast<SemanticTokenModifier>(static_cast<unsigned int>(lhs) |
+                                              static_cast<unsigned int>(rhs));
+}
+auto semantic_token_modifiers() -> boost::json::array {
+    return boost::json::array{"declaration", "defaultLibrary", "static"};
+};
+
+auto semanticToken(xlang::Token token, int length, SemanticTokenType type,
+                   SemanticTokenModifier modifier, boost::json::array& data,
+                   xlang::Source& previous) -> void {
+    int lineDelta = token.source.line - previous.line;
+    int columnDelta =
+        lineDelta ? token.source.column : token.source.column - previous.column;
+
+    previous.line = token.source.line;
+    previous.column = token.source.column;
+
+    data.push_back(lineDelta);
+    data.push_back(columnDelta);
+    data.push_back(length);
+    data.push_back(static_cast<int>(type));
+    data.push_back(static_cast<int>(modifier));
+}
+
+auto semanticNode(xlang::Node node, boost::json::array& data,
+                  xlang::Source& previous) -> void {
+    switch (node.type) {
+    case xlang::NodeType::variable_definition: {
+        auto vardef = std::get<xlang::VariableDefinition>(node.value);
+        semanticToken(vardef.trivia.keyword, 3, SemanticTokenType::keyword,
+                      SemanticTokenModifier::none, data, previous);
+        semanticToken(
+            vardef.trivia.identifier,
+            std::get<std::string>(vardef.trivia.identifier.value).length(),
+            SemanticTokenType::variable, SemanticTokenModifier::none, data,
+            previous);
+        semanticNode(*vardef.value, data, previous);
+    } break;
+    case xlang::NodeType::string_literal: {
+        auto string = std::get<std::string>(node.value);
+        semanticToken(node.tokens[0], string.length() + 2,
+                      SemanticTokenType::string, SemanticTokenModifier::none,
+                      data, previous);
+    } break;
+    case xlang::NodeType::identifier: {
+        auto string = std::get<std::string>(node.value);
+        semanticToken(node.tokens[0], string.length(),
+                      SemanticTokenType::variable, SemanticTokenModifier::none,
+                      data, previous);
+    } break;
+    case xlang::NodeType::function_definition: {
+        auto fundef = std::get<xlang::FunctionDefinition>(node.value);
+        semanticToken(fundef.trivia.keyword, 2, SemanticTokenType::keyword,
+                      SemanticTokenModifier::none, data, previous);
+        semanticToken(
+            fundef.trivia.identifier,
+            std::get<std::string>(fundef.trivia.identifier.value).length(),
+            SemanticTokenType::function, SemanticTokenModifier::none, data,
+            previous);
+        for (const auto& arg : fundef.arguments) {
+            semanticNode(arg, data, previous);
+        }
+        for (const auto& body : fundef.body) {
+            semanticNode(body, data, previous);
+        }
+    } break;
+    case xlang::NodeType::function_call: {
+        auto funcal = std::get<xlang::FunctionCall>(node.value);
+        semanticToken(
+            funcal.trivia.identifier,
+            std::get<std::string>(funcal.trivia.identifier.value).length(),
+            SemanticTokenType::function, SemanticTokenModifier::none, data,
+            previous);
+        for (const auto& arg : funcal.arguments) {
+            semanticNode(arg, data, previous);
+        }
+    } break;
+    }
+}
+
 auto handle(Request request, Context& ctx)
     -> std::optional<boost::json::object> {
     if (request.method == "initialize") {
@@ -108,11 +201,8 @@ auto handle(Request request, Context& ctx)
                   boost::json::object{
                       {"legend",
                        boost::json::object{
-                           {"tokenTypes",
-                            boost::json::array{"keyword", "function",
-                                               "string"}},
-                           {"tokenModifiers",
-                            boost::json::array{"defaultLibrary"}}}},
+                           {"tokenTypes", semantic_token_types()},
+                           {"tokenModifiers", semantic_token_modifiers()}}},
                       {"full", true}}}}}};
     } else if (request.method == "textDocument/semanticTokens/full") {
         auto uri =
@@ -120,44 +210,12 @@ auto handle(Request request, Context& ctx)
 
         auto data = boost::json::array{};
         auto diagnostics = xlang::Diagnostics{};
-        const auto tokens = ctx.lexer.lex(ctx.files[uri], diagnostics);
+        auto tokens = ctx.lexer.lex(ctx.files[uri], diagnostics);
+        auto ast = ctx.parser.parse(tokens, diagnostics);
 
-        int previousLine = 0;
-        int previousColumn = 0;
-
-        for (const auto& token : tokens) {
-            int lineDelta = token.source.line - previousLine;
-            int columnDelta = lineDelta ? token.source.column
-                                        : token.source.column - previousColumn;
-
-            int length = 0;
-            int type = 0;
-            int modifier = 0;
-
-            switch (token.type) {
-            case xlang::TokenType::function:
-                length = 2;
-                break;
-            case xlang::TokenType::identifier:
-                length = std::get<std::string>(token.value).size();
-                type = 1;
-                break;
-            case xlang::TokenType::string_literal:
-                length = std::get<std::string>(token.value).size() + 2;
-                type = 2;
-                modifier = 1;
-                break;
-            default:
-                continue;
-            }
-            previousLine = token.source.line;
-            previousColumn = token.source.column;
-
-            data.push_back(lineDelta);
-            data.push_back(columnDelta);
-            data.push_back(length);
-            data.push_back(type);
-            data.push_back(modifier);
+        auto previous = xlang::Source{};
+        for (const auto& node : ast) {
+            semanticNode(node, data, previous);
         }
 
         return boost::json::object{{"data", data}};

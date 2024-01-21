@@ -38,6 +38,11 @@ auto Lexer::lex(Buffer<std::string> input, Diagnostics& diagnostics)
                 tokens.emplace_back(TokenType::curly_close, source);
                 source.column += 1;
                 break;
+            case '=':
+                input.pop();
+                tokens.emplace_back(TokenType::assignment, source);
+                source.column += 1;
+                break;
             case '"':
                 state = LexerState::string_literal;
                 input.pop();
@@ -77,6 +82,8 @@ auto Lexer::lex(Buffer<std::string> input, Diagnostics& diagnostics)
             } else {
                 if (identifier == "fn") {
                     tokens.emplace_back(TokenType::function, source);
+                } else if (identifier == "var") {
+                    tokens.emplace_back(TokenType::variable, source);
                 } else {
                     tokens.emplace_back(TokenType::identifier, identifier,
                                         source);

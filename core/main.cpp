@@ -37,7 +37,6 @@ auto main(int argc, char* argv[]) -> int {
     const auto ir = compiler.compile(ast, diagnostics);
     std::cout << ir << std::endl;
 
-    // TODO: make diagnostics an iterable
     for (const auto& diagnostic : diagnostics) {
         std::cerr << diagnostic.message << " (" << diagnostic.source << ")"
                   << std::endl;

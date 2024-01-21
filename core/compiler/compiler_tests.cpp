@@ -10,14 +10,15 @@ Compiler compiler{};
 TEST(CompilerTest, TestCompile) {
     auto diagnostics = Diagnostics();
     auto tokens = std::vector<Token>{Token{TokenType::identifier, Source{}}};
-    auto ast = std::vector<Node>{
-        {FunctionDefinition{
-             "main", std::vector<Node>{},
-             std::vector<Node>{
-                 {FunctionCall{"printf",
-                               std::vector<Node>{{"Hello, world!", tokens}}},
-                  tokens}}},
-         tokens}};
+    auto ast = std::vector<Node>{{FunctionDefinition{
+        "main",
+        std::vector<Node>{},
+        std::vector<Node>{
+            {FunctionCall{"printf",
+                          std::vector<Node>{{"Hello, world!", tokens}},
+                          {Token(TokenType::identifier, "printf", Source{})}}}},
+        {Token(TokenType::function, Source{}),
+         Token(TokenType::identifier, "main", Source{})}}}};
     const auto lli = compiler.compile(ast, diagnostics);
     ASSERT_EQ(lli, R"(; ModuleID = 'xlang'
 source_filename = "xlang"

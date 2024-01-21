@@ -3,62 +3,64 @@
 using namespace xlang;
 
 auto parse_expression(Buffer<std::vector<Token>>& tokens,
-                      Diagnostics& diagnostics) -> Node;
+                      Diagnostics& diagnostics) -> std::optional<Node>;
 
-auto parse_function_call(Buffer<std::vector<Token>>& tokens,
-                         Diagnostics& diagnostics) -> Node {
-    FunctionCall functionCall{};
-    std::vector<Token> consumedTokens{};
-
-    std::cerr << "parse_function_call" << std::endl;
-
-    auto token = tokens.pop();
-    consumedTokens.push_back(token);
-    if (token.type != TokenType::identifier) {
-        diagnostics.push_error("Expected function call identifier",
-                               token.source);
-        return {functionCall, consumedTokens};
+auto require_next_token(TokenType type, std::string error, Token previousToken,
+                        Buffer<std::vector<Token>>& tokens,
+                        Diagnostics& diagnostics) -> std::optional<Token> {
+    auto token = tokens.safe_pop();
+    if (!token.has_value() || token.value().type != type) {
+        diagnostics.push_error(error, token.has_value() ? token.value().source
+                                                        : previousToken.source);
     }
-    functionCall.name = std::get<std::string>(token.value);
+    return token;
+}
 
-    if (tokens.empty() || tokens.peek().type != TokenType::paren_open) {
-        diagnostics.push_error("Expected function arguments", token.source);
-        return {functionCall, consumedTokens};
-    }
-    tokens.pop();
+auto parse_function_call(Token identifier, Buffer<std::vector<Token>>& tokens,
+                         Diagnostics& diagnostics) -> std::optional<Node> {
+    auto name = std::get<std::string>(identifier.value);
 
-    while (!tokens.empty()) {
-        token = tokens.peek();
-        std::cerr << "  " << token << std::endl;
-        switch (token.type) {
-        case TokenType::string_literal: {
-            const auto string = tokens.pop();
-            consumedTokens.push_back(string);
-            functionCall.arguments.emplace_back(
-                NodeType::string_literal, std::get<std::string>(string.value),
-                std::vector<Token>{string});
-        } break;
-        case TokenType::paren_close:
-            consumedTokens.push_back(tokens.pop());
-            return {functionCall, consumedTokens};
-        case TokenType::identifier: {
-            const auto identifier = tokens.pop();
-            consumedTokens.push_back(identifier);
-            functionCall.arguments.emplace_back(
-                NodeType::identifier, std::get<std::string>(identifier.value),
-                std::vector<Token>{identifier});
-        } break;
-        default: {
-            consumedTokens.push_back(tokens.pop());
-            diagnostics.push_error(
-                "Unexpected token while parsing function arguments: " +
-                    tokenTypeToString(token.type),
-                token.source);
-        } break;
+    auto openParen =
+        require_next_token(TokenType::paren_open, "Expected open paren",
+                           identifier, tokens, diagnostics);
+    if (!openParen.has_value())
+        return std::nullopt;
+
+    std::vector<Node> arguments;
+    while (true) {
+        auto token = tokens.safe_peek();
+        if (!token.has_value()) {
+            diagnostics.push_error("Expected function arguments",
+                                   openParen.value().source);
+            return std::nullopt;
         }
+
+        if (token.value().type == TokenType::paren_close) {
+            tokens.pop();
+            break;
+        }
+
+        auto argument = parse_expression(tokens, diagnostics);
+        if (!argument.has_value())
+            continue;
+        arguments.push_back(argument.value());
     }
 
-    return {functionCall, consumedTokens};
+    return Node{FunctionCall{name, arguments, {identifier}}};
+}
+
+auto parse_identifier_or_function_call(Token identifier,
+                                       Buffer<std::vector<Token>>& tokens,
+                                       Diagnostics& diagnostics)
+    -> std::optional<Node> {
+    auto name = std::get<std::string>(identifier.value);
+
+    auto next = tokens.safe_peek();
+    if (next.has_value() && next.value().type == TokenType::paren_open) {
+        return parse_function_call(identifier, tokens, diagnostics);
+    }
+
+    return Node{NodeType::identifier, name, {identifier}};
 }
 
 enum class FunctionDefinitionState {
@@ -91,138 +93,118 @@ inline auto operator<<(std::ostream& os, FunctionDefinitionState value)
     return os << functionDefinitionStateToString(value);
 }
 
-auto parse_function_definition(Buffer<std::vector<Token>>& tokens,
-                               Diagnostics& diagnostics) -> Node {
-    FunctionDefinition functionDefinition{};
-    std::vector<Token> consumedTokens{};
+auto parse_function_definition(Token keyword,
+                               Buffer<std::vector<Token>>& tokens,
+                               Diagnostics& diagnostics)
+    -> std::optional<Node> {
+    auto identifier =
+        require_next_token(TokenType::identifier, "Expected function name",
+                           keyword, tokens, diagnostics);
+    if (!identifier.has_value())
+        return std::nullopt;
 
-    auto state = FunctionDefinitionState::none;
+    auto name = std::get<std::string>(identifier.value().value);
 
-    std::cerr << "parse_function_definition" << std::endl;
-
-    auto token = tokens.peek();
-    if (token.type != TokenType::function) {
-        diagnostics.push_error("Expected function keyword", token.source);
-    }
-    tokens.pop();
-
-    while (!tokens.empty()) {
-        token = tokens.peek();
-        std::cerr << state << "  " << token << std::endl;
-        switch (state) {
-        case FunctionDefinitionState::none: {
-            switch (token.type) {
-            case TokenType::identifier: {
-                auto identifier = tokens.pop();
-                consumedTokens.push_back(identifier);
-                functionDefinition.name =
-                    std::get<std::string>(identifier.value);
-                state = FunctionDefinitionState::parameters_start;
-            } break;
-            default:
-                diagnostics.push_error(
-                    "Expected function name for function definition",
-                    token.source);
-                return {functionDefinition, consumedTokens};
-            }
-        } break;
-        case FunctionDefinitionState::parameters_start: {
-            switch (token.type) {
-            case TokenType::paren_open:
-                consumedTokens.push_back(tokens.pop());
-                state = FunctionDefinitionState::parameters;
-                break;
-            default:
-                diagnostics.push_error(
-                    "Expected parameter list for function definition",
-                    token.source);
-                return {functionDefinition, consumedTokens};
-            }
-        } break;
-        case FunctionDefinitionState::parameters: {
-            switch (token.type) {
-            case TokenType::identifier: {
-                auto identifier = tokens.pop();
-                consumedTokens.push_back(identifier);
-                functionDefinition.arguments.emplace_back(
-                    NodeType::identifier,
-                    std::get<std::string>(identifier.value),
-                    std::vector<Token>{identifier});
-            } break;
-            case TokenType::string_literal: {
-                auto string = tokens.pop();
-                consumedTokens.push_back(string);
-                functionDefinition.arguments.emplace_back(
-                    NodeType::string_literal,
-                    std::get<std::string>(string.value),
-                    std::vector<Token>{string});
-            } break;
-            case TokenType::paren_close: {
-                consumedTokens.push_back(tokens.pop());
-                state = FunctionDefinitionState::body_start;
-            } break;
-            default:
-                diagnostics.push_error(
-                    "Unexpected token while parsing function parameters: " +
-                        tokenTypeToString(token.type),
-                    token.source);
-                return {functionDefinition, consumedTokens};
-            }
-        } break;
-        case FunctionDefinitionState::body_start: {
-            switch (token.type) {
-            case TokenType::curly_open:
-                consumedTokens.push_back(tokens.pop());
-                state = FunctionDefinitionState::body;
-                break;
-            default:
-                diagnostics.push_error(
-                    "Expected function body for function definition",
-                    token.source);
-                return {functionDefinition, consumedTokens};
-            }
-        } break;
-        case FunctionDefinitionState::body: {
-            functionDefinition.body = {};
-            while (true) {
-                if (tokens.empty()) {
-                    diagnostics.push_error(
-                        "Expected function body to end with curly close",
-                        token.source);
-                    return {functionDefinition, consumedTokens};
-                }
-                token = tokens.peek();
-                if (token.type == TokenType::curly_close) {
-                    tokens.pop();
-                    consumedTokens.push_back(token);
-                    return {functionDefinition, consumedTokens};
-                }
-                functionDefinition.body.push_back(
-                    parse_expression(tokens, diagnostics));
-            }
+    require_next_token(TokenType::paren_open, "Expected open paren",
+                       identifier.value(), tokens, diagnostics);
+    auto arguments = std::vector<Node>{};
+    while (true) {
+        auto token = tokens.safe_peek();
+        if (!token.has_value()) {
+            diagnostics.push_error("Expected function arguments",
+                                   identifier.value().source);
+            return std::nullopt;
         }
-        default:
+
+        if (token.value().type == TokenType::paren_close) {
+            tokens.pop();
             break;
         }
+
+        auto argument = parse_expression(tokens, diagnostics);
+        if (!argument.has_value())
+            continue;
+        arguments.push_back(argument.value());
     }
 
-    return {functionDefinition, consumedTokens};
+    require_next_token(TokenType::curly_open, "Expected open curly",
+                       identifier.value(), tokens, diagnostics);
+
+    auto body = std::vector<Node>{};
+    while (true) {
+        auto token = tokens.safe_peek();
+        if (!token.has_value()) {
+            diagnostics.push_error("Expected function body",
+                                   identifier.value().source);
+            return std::nullopt;
+        }
+
+        if (token.value().type == TokenType::curly_close) {
+            tokens.pop();
+            break;
+        }
+
+        auto expr = parse_expression(tokens, diagnostics);
+        if (!expr.has_value())
+            continue;
+        body.push_back(expr.value());
+    }
+
+    return std::make_optional(Node{FunctionDefinition{
+        name, arguments, body, {keyword, identifier.value()}}});
+}
+
+auto parse_variable_definition(Buffer<std::vector<Token>>& tokens,
+                               Diagnostics& diagnostics, Token varToken)
+    -> std::optional<Node> {
+    auto identifier =
+        require_next_token(TokenType::identifier, "Expected variable name",
+                           varToken, tokens, diagnostics);
+    if (!identifier.has_value())
+        return std::nullopt;
+
+    std::string name = std::get<std::string>(identifier.value().value);
+
+    auto assignment = require_next_token(TokenType::assignment,
+                                         "Expected variable assignment",
+                                         varToken, tokens, diagnostics);
+    if (!assignment.has_value())
+        return std::nullopt;
+
+    auto value = parse_expression(tokens, diagnostics);
+    if (!value) {
+        diagnostics.push_error("Expected variable value",
+                               assignment.value().source);
+        return std::nullopt;
+    }
+
+    return Node{
+        VariableDefinition{name,
+                           std::make_shared<Node>(value.value()),
+                           {varToken, identifier.value(), assignment.value()}}};
 }
 
 auto parse_expression(Buffer<std::vector<Token>>& tokens,
-                      Diagnostics& diagnostics) -> Node {
-    std::cerr << "parse_expression: " << tokens.peek() << std::endl;
-
+                      Diagnostics& diagnostics) -> std::optional<Node> {
     switch (tokens.peek().type) {
     case TokenType::identifier:
-        return parse_function_call(tokens, diagnostics);
+        return parse_identifier_or_function_call(tokens.pop(), tokens,
+                                                 diagnostics);
     case TokenType::function:
-        return parse_function_definition(tokens, diagnostics);
+        return parse_function_definition(tokens.pop(), tokens, diagnostics);
+    case TokenType::variable:
+        return parse_variable_definition(tokens, diagnostics, tokens.pop());
+    case TokenType::string_literal: {
+        auto token = tokens.pop();
+        return Node{NodeType::string_literal,
+                    std::get<std::string>(token.value),
+                    std::vector<Token>{token}};
+    } break;
     default:
         auto token = tokens.pop();
         diagnostics.push_error(
             "Unexpected token: " + tokenTypeToString(token.type), token.source);
-        return Node{"unknown", std::vector<Token>{}};
+        return std::nullopt;
     }
 }
 
@@ -230,8 +212,10 @@ auto Parser::parse(Buffer<std::vector<Token>> tokens, Diagnostics& diagnostics)
     -> std::vector<Node> {
     std::vector<Node> expressions{};
     while (!tokens.empty()) {
-        std::cerr << "parse" << std::endl;
-        expressions.push_back(parse_expression(tokens, diagnostics));
+        auto node = parse_expression(tokens, diagnostics);
+        if (!node.has_value())
+            continue;
+        expressions.push_back(node.value());
     }
     return expressions;
 }

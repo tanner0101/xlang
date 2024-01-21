@@ -1,8 +1,6 @@
 cc_library(
     name = "node",
     hdrs = [
-        "function_call.h",
-        "function_definition.h",
         "node.h",
         "node_type.h",
     ],

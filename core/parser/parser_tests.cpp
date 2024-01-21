@@ -21,15 +21,17 @@ TEST(ParserTest, TestParsing) {
         Token{TokenType::paren_close, source},
         Token{TokenType::curly_close, source}};
     auto ast = parser.parse(tokens, diagnostics);
-    auto expected = std::vector<Node>{
-        {FunctionDefinition{
-             "main", std::vector<Node>{},
-             std::vector<Node>{
-                 {FunctionCall{"print",
-                               std::vector<Node>{
-                                   {"Hello, world!", std::vector<Token>{}}}},
-                  std::vector<Token>{}}}},
-         std::vector<Token>{}}};
+    auto expected = std::vector<Node>{{FunctionDefinition{
+        "main",
+        std::vector<Node>{},
+        std::vector<Node>{{FunctionCall{
+            "print",
+            std::vector<Node>{{"Hello, world!", std::vector<Token>{}}},
+            {Token{TokenType::identifier, "print", source}}}}},
+        {
+            Token{TokenType::function, source},
+            Token{TokenType::identifier, "main", source},
+        }}}};
     ASSERT_EQ(ast, expected);
     ASSERT_EQ(diagnostics.size(), 0);
 }

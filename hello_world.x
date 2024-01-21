@@ -1,13 +1,10 @@
-fn bar() {
-    qux(asdf)
-}
-
-fn foo() {
-    printf("hello, ")
-    bar()
+fn greet() {
+    printf("hello ")
+    var name = "world"
+    printf(name)
+    printf("!")
 }
 
 fn main() {
-    foo()
-    printf("world!")
+    greet()
 }

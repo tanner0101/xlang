@@ -22,21 +22,28 @@ template <Container T> class Buffer {
   public:
     Buffer(T s) : storage(std::move(s)) {}
 
-    [[nodiscard]] inline auto peek() const -> T::value_type {
+    [[nodiscard]] inline auto safe_peek() const
+        -> std::optional<typename T::value_type> {
         if (empty()) {
-            assert(false);
+            return std::nullopt;
         }
 
         return storage[position];
     }
 
-    inline auto pop() -> T::value_type {
+    inline auto safe_pop() -> std::optional<typename T::value_type> {
         if (empty()) {
-            assert(false);
+            return std::nullopt;
         }
 
         return storage[position++];
     }
+
+    [[nodiscard]] inline auto peek() const -> T::value_type {
+        return safe_peek().value();
+    }
+
+    inline auto pop() -> T::value_type { return safe_pop().value(); }
 
     [[nodiscard]] inline auto empty() const -> bool {
         return position >= storage.size();

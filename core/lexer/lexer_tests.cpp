@@ -9,6 +9,7 @@ TEST(LexerTest, TestTokenization) {
     auto diagnostics = Diagnostics{};
     const auto parsed = lexer.lex(R"(
 fn main() {
+    var foo = "bar"
     print("Hello, world!")
 }
 )",
@@ -21,6 +22,10 @@ fn main() {
         Token{TokenType::paren_open, source},
         Token{TokenType::paren_close, source},
         Token{TokenType::curly_open, source},
+        Token{TokenType::variable, source},
+        Token{TokenType::identifier, "foo", source},
+        Token{TokenType::assignment, source},
+        Token{TokenType::string_literal, "bar", source},
         Token{TokenType::identifier, "print", source},
         Token{TokenType::paren_open, source},
         Token{TokenType::string_literal, "Hello, world!", source},

@@ -26,7 +26,6 @@ struct Scope {
 auto generateIR(const Node& node, llvm::Module& module,
                 llvm::IRBuilder<>& builder, Scope& scope,
                 Diagnostics& diagnostics) -> llvm::Value* {
-    std::cerr << node << std::endl;
     switch (node.type) {
     case NodeType::function_definition: {
         auto& funcDef = std::get<FunctionDefinition>(node.value);
@@ -80,14 +79,23 @@ auto generateIR(const Node& node, llvm::Module& module,
         return builder.CreateGlobalStringPtr(std::get<std::string>(node.value));
     } break;
     case NodeType::identifier: {
+        auto name = std::get<std::string>(node.value);
         auto variable = scope.get_variable(std::get<std::string>(node.value));
         if (!variable) {
-            diagnostics.push_error("No variable named " +
-                                       std::get<std::string>(node.value) +
-                                       " found",
+            diagnostics.push_error("No variable named " + name + " found",
                                    node.tokens[0].source);
             return nullptr;
         }
+        return builder.CreateLoad(variable->getType()->getPointerElementType(),
+                                  variable, name);
+    } break;
+    case NodeType::variable_definition: {
+        auto& varDef = std::get<VariableDefinition>(node.value);
+        auto* value =
+            generateIR(*varDef.value, module, builder, scope, diagnostics);
+        auto* variable = builder.CreateAlloca(value->getType());
+        builder.CreateStore(value, variable);
+        scope.variables[varDef.name] = variable;
     } break;
     default: {
         // Ignore for now.

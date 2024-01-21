@@ -11,6 +11,8 @@ namespace xlang {
 
 enum class TokenType {
     function,
+    variable,
+    assignment,
     paren_open,
     paren_close,
     curly_open,
@@ -28,6 +30,8 @@ inline auto tokenTypeToString(TokenType tokenType) -> std::string {
 
     switch (tokenType) {
         TOKEN_TYPE_CASE(function);
+        TOKEN_TYPE_CASE(variable);
+        TOKEN_TYPE_CASE(assignment);
         TOKEN_TYPE_CASE(paren_open);
         TOKEN_TYPE_CASE(paren_close);
         TOKEN_TYPE_CASE(curly_open);
@@ -72,4 +76,4 @@ inline auto operator==(const Token& lhs, const Token& rhs) -> bool {
     return lhs.type == rhs.type && lhs.value == rhs.value;
 }
 
-}
+} // namespace xlang
