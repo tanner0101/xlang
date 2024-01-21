@@ -69,7 +69,7 @@ auto generateIR(const Node& node, llvm::Module& module,
         if (!func) {
             diagnostics.push_error("No function named " + funcCall.name +
                                        " found",
-                                   node.tokens[0].source);
+                                   funcCall.trivia.identifier.source);
             return nullptr;
         }
 

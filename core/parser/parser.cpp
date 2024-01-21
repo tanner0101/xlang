@@ -20,10 +20,10 @@ auto parse_function_call(Token identifier, Buffer<std::vector<Token>>& tokens,
                          Diagnostics& diagnostics) -> std::optional<Node> {
     auto name = std::get<std::string>(identifier.value);
 
-    auto openParen =
+    auto parenOpen =
         require_next_token(TokenType::paren_open, "Expected open paren",
                            identifier, tokens, diagnostics);
-    if (!openParen.has_value())
+    if (!parenOpen.has_value())
         return std::nullopt;
 
     std::vector<Node> arguments;
@@ -31,7 +31,7 @@ auto parse_function_call(Token identifier, Buffer<std::vector<Token>>& tokens,
         auto token = tokens.safe_peek();
         if (!token.has_value()) {
             diagnostics.push_error("Expected function arguments",
-                                   openParen.value().source);
+                                   parenOpen.value().source);
             return std::nullopt;
         }
 
@@ -41,8 +41,11 @@ auto parse_function_call(Token identifier, Buffer<std::vector<Token>>& tokens,
         }
 
         auto argument = parse_expression(tokens, diagnostics);
-        if (!argument.has_value())
-            continue;
+        if (!argument.has_value()) {
+            diagnostics.push_error("Failed to parse function arguments",
+                                   parenOpen.value().source);
+            break;
+        }
         arguments.push_back(argument.value());
     }
 
@@ -105,8 +108,9 @@ auto parse_function_definition(Token keyword,
 
     auto name = std::get<std::string>(identifier.value().value);
 
-    require_next_token(TokenType::paren_open, "Expected open paren",
-                       identifier.value(), tokens, diagnostics);
+    auto parenOpen =
+        require_next_token(TokenType::paren_open, "Expected open paren",
+                           identifier.value(), tokens, diagnostics);
     auto arguments = std::vector<Node>{};
     while (true) {
         auto token = tokens.safe_peek();
@@ -122,8 +126,11 @@ auto parse_function_definition(Token keyword,
         }
 
         auto argument = parse_expression(tokens, diagnostics);
-        if (!argument.has_value())
-            continue;
+        if (!argument.has_value()) {
+            diagnostics.push_error("Expected function argument",
+                                   parenOpen.value().source);
+            break;
+        }
         arguments.push_back(argument.value());
     }
 
@@ -201,9 +208,6 @@ auto parse_expression(Buffer<std::vector<Token>>& tokens,
                     std::vector<Token>{token}};
     } break;
     default:
-        auto token = tokens.pop();
-        diagnostics.push_error(
-            "Unexpected token: " + tokenTypeToString(token.type), token.source);
         return std::nullopt;
     }
 }
@@ -213,9 +217,11 @@ auto Parser::parse(Buffer<std::vector<Token>> tokens, Diagnostics& diagnostics)
     std::vector<Node> expressions{};
     while (!tokens.empty()) {
         auto node = parse_expression(tokens, diagnostics);
-        if (!node.has_value())
-            continue;
-        expressions.push_back(node.value());
+        if (node.has_value()) {
+            expressions.push_back(node.value());
+        } else {
+            tokens.pop();
+        }
     }
     return expressions;
 }
