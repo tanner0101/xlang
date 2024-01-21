@@ -15,7 +15,9 @@ TEST(CompilerTest, TestCompile) {
         std::vector<Node>{},
         std::vector<Node>{
             {FunctionCall{"printf",
-                          std::vector<Node>{{"Hello, world!", tokens}},
+                          std::vector<Node>{{StringLiteral{
+                              "Hello, world!",
+                              {{Token(TokenType::string_literal, Source{})}}}}},
                           {Token(TokenType::identifier, "printf", Source{})}}}},
         {Token(TokenType::function, Source{}),
          Token(TokenType::identifier, "main", Source{})}}}};

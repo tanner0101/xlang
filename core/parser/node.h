@@ -66,32 +66,61 @@ inline auto operator==(const VariableDefinition& lhs,
     return lhs.name == rhs.name && lhs.value == rhs.value;
 }
 
-using NodeValue = std::variant<std::string, FunctionDefinition, FunctionCall,
-                               VariableDefinition>;
+struct Identifier {
+    std::string name;
+
+    struct Trivia {
+        Token token;
+    };
+    Trivia trivia;
+};
+
+inline auto operator==(const Identifier& lhs, const Identifier& rhs) -> bool {
+    return lhs.name == rhs.name;
+}
+
+struct StringLiteral {
+    std::string value;
+
+    struct Trivia {
+        Token token;
+    };
+    Trivia trivia;
+};
+
+inline auto operator==(const StringLiteral& lhs, const StringLiteral& rhs)
+    -> bool {
+    return lhs.value == rhs.value;
+}
+
+using NodeValue = std::variant<StringLiteral, Identifier, FunctionDefinition,
+                               FunctionCall, VariableDefinition>;
 
 struct Node {
     NodeType type;
     NodeValue value;
-    std::vector<Token> tokens;
 
-    Node(NodeType type, NodeValue value, std::vector<Token> tokens)
-        : type{type}, value{std::move(value)}, tokens{std::move(tokens)} {}
+    Node(NodeType type, NodeValue value)
+        : type{type}, value{std::move(value)} {}
     Node(FunctionCall functionCall)
-        : Node(NodeType::function_call, functionCall, {}) {}
+        : Node(NodeType::function_call, functionCall) {}
     Node(FunctionDefinition functionDefinition)
-        : Node(NodeType::function_definition, functionDefinition, {}) {}
+        : Node(NodeType::function_definition, functionDefinition) {}
     Node(VariableDefinition variableDefinition)
-        : Node(NodeType::variable_definition, variableDefinition, {}) {}
-    Node(const char* string, std::vector<Token> tokens)
-        : Node(NodeType::string_literal, std::string(string), tokens) {}
+        : Node(NodeType::variable_definition, variableDefinition) {}
+    Node(Identifier identifier) : Node(NodeType::identifier, identifier) {}
+    Node(StringLiteral stringLiteral)
+        : Node(NodeType::string_literal, stringLiteral) {}
 };
 
 inline auto operator<<(std::ostream& os, Node node) -> std::ostream& {
     os << node.type;
     switch (node.type) {
     case NodeType::identifier:
+        os << "(" << std::get<Identifier>(node.value).name << ")";
+        break;
     case NodeType::string_literal:
-        os << "(" << std::get<std::string>(node.value) << ")";
+        os << "(" << std::get<StringLiteral>(node.value).value << ")";
         break;
     case NodeType::variable_definition: {
         auto variableDefinition = std::get<VariableDefinition>(node.value);
@@ -131,9 +160,11 @@ inline auto operator==(const Node& lhs, const Node& rhs) -> bool {
 
     switch (lhs.type) {
     case NodeType::identifier:
+        return std::get<Identifier>(lhs.value) ==
+               std::get<Identifier>(rhs.value);
     case NodeType::string_literal:
-        return std::get<std::string>(lhs.value) ==
-               std::get<std::string>(rhs.value);
+        return std::get<StringLiteral>(lhs.value) ==
+               std::get<StringLiteral>(rhs.value);
     case NodeType::function_definition:
         return std::get<FunctionDefinition>(lhs.value) ==
                std::get<FunctionDefinition>(rhs.value);

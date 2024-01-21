@@ -150,14 +150,15 @@ auto semanticNode(xlang::Node node, boost::json::array& data,
         semanticNode(*vardef.value, data, previous);
     } break;
     case xlang::NodeType::string_literal: {
-        auto string = std::get<std::string>(node.value);
-        semanticToken(node.tokens[0], string.length() + 2,
+        auto stringLiteral = std::get<xlang::StringLiteral>(node.value);
+        semanticToken(stringLiteral.trivia.token,
+                      stringLiteral.value.length() + 2,
                       SemanticTokenType::string, SemanticTokenModifier::none,
                       data, previous);
     } break;
     case xlang::NodeType::identifier: {
-        auto string = std::get<std::string>(node.value);
-        semanticToken(node.tokens[0], string.length(),
+        auto identifier = std::get<xlang::Identifier>(node.value);
+        semanticToken(identifier.trivia.token, identifier.name.length(),
                       SemanticTokenType::variable, SemanticTokenModifier::none,
                       data, previous);
     } break;

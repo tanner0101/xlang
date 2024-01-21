@@ -76,18 +76,20 @@ auto generateIR(const Node& node, llvm::Module& module,
         return builder.CreateCall(func, std::vector<llvm::Value*>{args});
     } break;
     case NodeType::string_literal: {
-        return builder.CreateGlobalStringPtr(std::get<std::string>(node.value));
+        return builder.CreateGlobalStringPtr(
+            std::get<StringLiteral>(node.value).value);
     } break;
     case NodeType::identifier: {
-        auto name = std::get<std::string>(node.value);
-        auto variable = scope.get_variable(std::get<std::string>(node.value));
+        auto identifier = std::get<Identifier>(node.value);
+        auto variable = scope.get_variable(identifier.name);
         if (!variable) {
-            diagnostics.push_error("No variable named " + name + " found",
-                                   node.tokens[0].source);
+            diagnostics.push_error("No variable named " + identifier.name +
+                                       " found",
+                                   identifier.trivia.token.source);
             return nullptr;
         }
         return builder.CreateLoad(variable->getType()->getPointerElementType(),
-                                  variable, name);
+                                  variable, identifier.name);
     } break;
     case NodeType::variable_definition: {
         auto& varDef = std::get<VariableDefinition>(node.value);

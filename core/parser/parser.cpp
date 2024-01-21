@@ -63,7 +63,7 @@ auto parse_identifier_or_function_call(Token identifier,
         return parse_function_call(identifier, tokens, diagnostics);
     }
 
-    return Node{NodeType::identifier, name, {identifier}};
+    return Node{Identifier{name, {identifier}}};
 }
 
 enum class FunctionDefinitionState {
@@ -203,9 +203,7 @@ auto parse_expression(Buffer<std::vector<Token>>& tokens,
         return parse_variable_definition(tokens, diagnostics, tokens.pop());
     case TokenType::string_literal: {
         auto token = tokens.pop();
-        return Node{NodeType::string_literal,
-                    std::get<std::string>(token.value),
-                    std::vector<Token>{token}};
+        return Node{StringLiteral{std::get<std::string>(token.value), {token}}};
     } break;
     default:
         return std::nullopt;

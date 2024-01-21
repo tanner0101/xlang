@@ -26,7 +26,9 @@ TEST(ParserTest, TestParsing) {
         std::vector<Node>{},
         std::vector<Node>{{FunctionCall{
             "print",
-            std::vector<Node>{{"Hello, world!", std::vector<Token>{}}},
+            std::vector<Node>{StringLiteral{
+                "Hello, world!",
+                {Token{TokenType::string_literal, "Hello, world!", source}}}},
             {Token{TokenType::identifier, "print", source}}}}},
         {
             Token{TokenType::function, source},
