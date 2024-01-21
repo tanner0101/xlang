@@ -102,12 +102,13 @@ enum class SemanticTokenType {
     keyword = 0,
     function,
     string,
+    number,
     variable,
     parameter,
     type
 };
 auto semantic_token_types() -> boost::json::array {
-    return boost::json::array{"keyword",  "function",  "string",
+    return boost::json::array{"keyword",  "function",  "string", "number",
                               "variable", "parameter", "type"};
 };
 
@@ -162,6 +163,14 @@ auto semanticNode(xlang::Node node, boost::json::array& data,
         semanticToken(stringLiteral.token, stringLiteral.value.length() + 2,
                       SemanticTokenType::string, SemanticTokenModifier::none,
                       data, previous);
+    } break;
+    case xlang::NodeType::integer_literal: {
+        auto integerLiteral = std::get<xlang::IntegerLiteral>(node.value);
+        semanticToken(
+            integerLiteral.token,
+            std::get<std::string>(integerLiteral.token.value).length(),
+            SemanticTokenType::number, SemanticTokenModifier::none, data,
+            previous);
     } break;
     case xlang::NodeType::identifier: {
         auto identifier = std::get<xlang::Identifier>(node.value);

@@ -12,7 +12,7 @@
 namespace xlang {
 
 ENUM_CLASS(NodeType, identifier, variable_definition, function_definition,
-           function_call, string_literal);
+           function_call, string_literal, integer_literal);
 
 struct Node;
 
@@ -87,8 +87,15 @@ struct StringLiteral {
     auto operator==(const StringLiteral& other) const -> bool = default;
 };
 
-using NodeValue = std::variant<StringLiteral, Identifier, FunctionDefinition,
-                               FunctionCall, VariableDefinition>;
+struct IntegerLiteral {
+    uint64_t value;
+    Token token;
+    auto operator==(const IntegerLiteral& other) const -> bool = default;
+};
+
+using NodeValue =
+    std::variant<StringLiteral, IntegerLiteral, Identifier, FunctionDefinition,
+                 FunctionCall, VariableDefinition>;
 
 struct Node {
     NodeType type;
@@ -105,6 +112,8 @@ struct Node {
     Node(Identifier identifier) : Node(NodeType::identifier, identifier) {}
     Node(StringLiteral stringLiteral)
         : Node(NodeType::string_literal, stringLiteral) {}
+    Node(IntegerLiteral integerLiteral)
+        : Node(NodeType::integer_literal, integerLiteral) {}
 };
 
 inline auto operator<<(std::ostream& os, Node node) -> std::ostream& {

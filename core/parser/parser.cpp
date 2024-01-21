@@ -207,7 +207,13 @@ auto parse_expression(Buffer<std::vector<Token>>& tokens,
         auto token = tokens.pop();
         return Node{StringLiteral{std::get<std::string>(token.value), {token}}};
     } break;
+    case TokenType::integer_literal: {
+        auto token = tokens.pop();
+        return Node{IntegerLiteral{stoull(std::get<std::string>(token.value)),
+                                   {token}}};
+    } break;
     default:
+        std::cerr << "Unexpected token: " << tokens.peek().type << std::endl;
         return std::nullopt;
     }
 }

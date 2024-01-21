@@ -73,6 +73,8 @@ auto Lexer::lex(Buffer<std::string> input, Diagnostics& diagnostics)
             default: {
                 if (std::isalpha(input.peek())) {
                     state = LexerState::identifier;
+                } else if (std::isdigit(input.peek())) {
+                    state = LexerState::integer_literal;
                 } else {
                     const auto unknown = input.pop();
                     tokens.emplace_back(TokenType::unknown,
@@ -115,6 +117,20 @@ auto Lexer::lex(Buffer<std::string> input, Diagnostics& diagnostics)
             } else {
                 identifier.push_back(input.pop());
             }
+            break;
+        case LexerState::integer_literal: {
+            if (std::isdigit(input.peek())) {
+                identifier.push_back(input.pop());
+            } else {
+                state = LexerState::none;
+                tokens.emplace_back(TokenType::integer_literal, identifier,
+                                    source);
+                source.column += (int)identifier.size();
+                identifier.clear();
+            }
+        } break;
+        default:
+            std::cerr << "Unknown lexer state: " << state << std::endl;
             break;
         };
     }

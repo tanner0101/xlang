@@ -2,6 +2,7 @@
 
 #include "core/util/buffer.h"
 #include "core/util/diagnostics.h"
+#include "core/util/enum.h"
 #include "token.h"
 #include <optional>
 #include <string>
@@ -9,11 +10,7 @@
 
 namespace xlang {
 
-enum class LexerState {
-    none,
-    identifier,
-    string_literal,
-};
+ENUM_CLASS(LexerState, none, identifier, string_literal, integer_literal);
 
 class Lexer {
   public:
@@ -29,8 +26,6 @@ class Lexer {
 
     auto lex(Buffer<std::string> input, Diagnostics& diagnostics)
         -> std::vector<Token>;
-
-    void printTokens();
 };
 
 } // namespace xlang
