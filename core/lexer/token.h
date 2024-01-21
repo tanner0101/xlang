@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/util/enum.h"
+#include <array>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -9,45 +11,9 @@
 
 namespace xlang {
 
-enum class TokenType {
-    function,
-    variable,
-    assignment,
-    paren_open,
-    paren_close,
-    curly_open,
-    curly_close,
-    identifier,
-    string_literal,
-    new_line,
-    unknown,
-};
-
-inline auto tokenTypeToString(TokenType tokenType) -> std::string {
-#define TOKEN_TYPE_CASE(name)                                                  \
-    case TokenType::name:                                                      \
-        return #name
-
-    switch (tokenType) {
-        TOKEN_TYPE_CASE(function);
-        TOKEN_TYPE_CASE(variable);
-        TOKEN_TYPE_CASE(assignment);
-        TOKEN_TYPE_CASE(paren_open);
-        TOKEN_TYPE_CASE(paren_close);
-        TOKEN_TYPE_CASE(curly_open);
-        TOKEN_TYPE_CASE(curly_close);
-        TOKEN_TYPE_CASE(identifier);
-        TOKEN_TYPE_CASE(new_line);
-        TOKEN_TYPE_CASE(string_literal);
-    default:
-        return "unknown";
-    }
-}
-
-inline auto operator<<(std::ostream& os, TokenType tokenType) -> std::ostream& {
-    os << tokenTypeToString(tokenType);
-    return os;
-}
+ENUM_CLASS(TokenType, function, variable, assignment, paren_open, paren_close,
+           curly_open, curly_close, identifier, string_literal, new_line,
+           unknown);
 
 struct Token {
     TokenType type;

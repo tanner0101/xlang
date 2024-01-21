@@ -60,6 +60,8 @@ auto convertDiagnostics(xlang::Diagnostics diagnostics) -> boost::json::array {
         case xlang::DiagnosticType::note:
             severity = 3;
             break;
+        default:
+            break;
         }
         result.push_back(boost::json::object{
             {"message", diagnostic.message},
@@ -186,6 +188,8 @@ auto semanticNode(xlang::Node node, boost::json::array& data,
             semanticNode(arg, data, previous);
         }
     } break;
+    default:
+        break;
     }
 }
 

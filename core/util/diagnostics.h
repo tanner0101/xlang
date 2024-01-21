@@ -1,16 +1,13 @@
 #pragma once
 
+#include "core/util/enum.h"
 #include "source.h"
 #include <string>
 #include <vector>
 
 namespace xlang {
 
-enum class DiagnosticType {
-    error,
-    warning,
-    note,
-};
+ENUM_CLASS(DiagnosticType, error, warning, note);
 
 struct Diagnostic {
     DiagnosticType type;

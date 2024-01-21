@@ -1,6 +1,6 @@
 #pragma once
 
-#include "node_type.h"
+#include "core/util/enum.h"
 #include <iostream>
 #include <memory>
 #include <string>
@@ -10,6 +10,9 @@
 #include "core/lexer/token.h"
 
 namespace xlang {
+
+ENUM_CLASS(NodeType, identifier, variable_definition, function_definition,
+           function_call, string_literal);
 
 struct Node;
 
@@ -84,7 +87,7 @@ struct Node {
 };
 
 inline auto operator<<(std::ostream& os, Node node) -> std::ostream& {
-    os << nodeTypeToString(node.type);
+    os << node.type;
     switch (node.type) {
     case NodeType::identifier:
     case NodeType::string_literal:

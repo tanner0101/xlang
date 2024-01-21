@@ -2,12 +2,12 @@ cc_library(
     name = "node",
     hdrs = [
         "node.h",
-        "node_type.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//core/lexer:token",
         "//core/util:buffer",
+        "//core/util:enum",
     ],
 )
 

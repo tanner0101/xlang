@@ -7,6 +7,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//core/util:enum",
         "//core/util:source",
     ],
 )
