@@ -108,6 +108,13 @@ auto compileNode(const Node& node, llvm::Module& module,
     case NodeType::function_definition: {
         auto& funcDef = std::get<FunctionDefinition>(node.value);
 
+        if (scope.functions.find(funcDef.name) != scope.functions.end()) {
+            diagnostics.push_error("Function '" + funcDef.name +
+                                       "' is already defined.",
+                                   funcDef.tokens.identifier.source);
+            return nullptr;
+        }
+
         std::vector<llvm::Type*> llvmTypes{};
         std::vector<Type*> types{};
         for (const auto& param : funcDef.parameters) {
