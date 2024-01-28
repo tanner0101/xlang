@@ -30,7 +30,9 @@ TEST(ParserTest, TestParsing) {
             std::vector<Node>{StringLiteral{
                 "Hello, world!",
                 {Token{TokenType::string_literal, "Hello, world!", source}}}},
-            {Token{TokenType::identifier, "print", source}}}}},
+            {Token{TokenType::identifier, "print", source},
+             Token{TokenType::paren_open, source},
+             Token{TokenType::paren_close, source}}}}},
         {
             std::nullopt,
             Token{TokenType::function, source},

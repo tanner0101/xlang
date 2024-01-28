@@ -93,6 +93,8 @@ struct FunctionCall {
 
     struct Tokens {
         Token identifier;
+        Token parenOpen;
+        Token parenClose;
         auto operator==(const Tokens& other) const -> bool = default;
     };
     Tokens tokens;
@@ -188,6 +190,19 @@ struct Node {
     Node(IntegerLiteral integerLiteral)
         : Node(NodeType::integer_literal, integerLiteral) {}
 };
+
+inline auto node_source(Node node) -> Source {
+    switch (node.type) {
+    case NodeType::identifier:
+        return std::get<Identifier>(node.value).token.source;
+    case NodeType::integer_literal:
+        return std::get<IntegerLiteral>(node.value).token.source;
+    case NodeType::string_literal:
+        return std::get<StringLiteral>(node.value).token.source;
+    default:
+        return Source{};
+    }
+}
 
 inline auto operator<<(std::ostream& os, Node node) -> std::ostream& {
     os << node.type;

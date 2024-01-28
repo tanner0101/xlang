@@ -19,7 +19,11 @@ TEST(CompilerTest, TestCompile) {
                           std::vector<Node>{{StringLiteral{
                               "Hello, world!",
                               {{Token(TokenType::string_literal, Source{})}}}}},
-                          {Token(TokenType::identifier, "print", Source{})}}}},
+                          {
+                              Token(TokenType::identifier, "print", Source{}),
+                              Token(TokenType::paren_open, Source{}),
+                              Token(TokenType::paren_close, Source{}),
+                          }}}},
         {std::nullopt, Token(TokenType::function, Source{}),
          Token(TokenType::identifier, "main", Source{})}}}};
     const auto lli = compiler.compile(ast, diagnostics);

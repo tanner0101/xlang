@@ -28,6 +28,7 @@ auto parse_function_call(Token identifier, Buffer<std::vector<Token>>& tokens,
         return std::nullopt;
 
     std::vector<Node> arguments;
+    std::optional<Token> parenClose = std::nullopt;
     while (true) {
         auto token = tokens.safe_peek();
         if (!token.has_value()) {
@@ -37,7 +38,7 @@ auto parse_function_call(Token identifier, Buffer<std::vector<Token>>& tokens,
         }
 
         if (token.value().type == TokenType::paren_close) {
-            tokens.pop();
+            parenClose = tokens.safe_pop();
             break;
         }
 
@@ -50,7 +51,11 @@ auto parse_function_call(Token identifier, Buffer<std::vector<Token>>& tokens,
         arguments.push_back(argument.value());
     }
 
-    return Node{FunctionCall{name, arguments, {identifier}}};
+    if (!parenClose.has_value())
+        return std::nullopt;
+
+    return Node{FunctionCall{
+        name, arguments, {identifier, parenOpen.value(), parenClose.value()}}};
 }
 
 auto parse_identifier_or_function_call(Token previousToken,
