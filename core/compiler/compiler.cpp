@@ -136,6 +136,7 @@ auto compileNode(const Node& node, llvm::Module& module,
         for (const auto& param : funcDef.parameters) {
             auto type = nestedScope.getType(param.type);
             auto value = args++;
+            value->setName(param.name);
             auto variable = new Variable{param.name, type, value};
             scope.variables[param.name] = variable;
         }
@@ -199,11 +200,12 @@ auto compileNode(const Node& node, llvm::Module& module,
 
             // TODO: support deeper nesting
             // TODO: support actually looking up the member
-            llvm::Value* memberPtr = builder.CreateStructGEP(
-                variable->type->llvm, variable->llvm, found, "memberPtr");
+            llvm::Value* memberPtr =
+                builder.CreateStructGEP(variable->type->llvm, variable->llvm,
+                                        found, identifier.next->name + "_ptr");
             // TODO: support other types
             return builder.CreateLoad(builder.getInt8PtrTy(), memberPtr,
-                                      identifier.name);
+                                      identifier.next->name);
         } else {
             return variable->llvm;
         }

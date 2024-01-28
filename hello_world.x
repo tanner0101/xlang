@@ -1,11 +1,11 @@
 struct String {
-    pointer: Pointer<UInt8>
+    raw: Pointer<UInt8>
 }
 
-extern fn printf(string: Pointer<UInt8>)
+extern fn printf(s: Pointer<UInt8>)
 
 fn print(string: String) {
-    printf(string.pointer)
+    printf(string.raw)
 }
 
 struct Planet {
