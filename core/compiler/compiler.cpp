@@ -51,11 +51,30 @@ struct Scope {
         }
     }
 
-    auto getType(const std::string& name) -> Type* {
+    auto getType(const TypeIdentifier& type) -> Type* {
+        if (type.name == "Pointer") {
+            auto internal = getType(type.genericParameters[0]);
+            if (!internal) {
+                return nullptr;
+            }
+            return new Type{internal->name + "*",
+                            internal->llvm->getPointerTo()};
+        }
+
+        if (types.find(type.name) != types.end()) {
+            return types[type.name];
+        } else if (parent) {
+            return parent->getType(type);
+        } else {
+            return nullptr;
+        }
+    }
+
+    auto _getType(const std::string& name) -> Type* {
         if (types.find(name) != types.end()) {
             return types[name];
         } else if (parent) {
-            return parent->getType(name);
+            return parent->_getType(name);
         } else {
             return nullptr;
         }
@@ -76,16 +95,18 @@ auto compileNode(const Node& node, llvm::Module& module,
         for (const auto& param : funcDef.parameters) {
             auto type = scope.getType(param.type);
             if (!type) {
-                diagnostics.push_error("No type named " + param.type + " found",
-                                       param.tokens.type.source);
+                diagnostics.push_error("No type named " + param.type.name +
+                                           " found",
+                                       param.tokens.identifier.source);
                 return nullptr;
             }
             llvmTypes.push_back(type->llvm);
             types.push_back(type);
         }
 
+        // TODO: support return types
         auto func = llvm::Function::Create(
-            llvm::FunctionType::get(builder.getVoidTy(), llvmTypes, false),
+            llvm::FunctionType::get(builder.getInt32Ty(), llvmTypes, false),
             llvm::Function::ExternalLinkage, funcDef.name, module);
 
         auto args = func->arg_begin();
@@ -98,20 +119,23 @@ auto compileNode(const Node& node, llvm::Module& module,
             scope.variables[param.name] = variable;
         }
 
-        auto* block =
-            llvm::BasicBlock::Create(module.getContext(), "entry", func);
-        builder.SetInsertPoint(block);
+        if (!funcDef.external) {
+            auto* block =
+                llvm::BasicBlock::Create(module.getContext(), "entry", func);
+            builder.SetInsertPoint(block);
 
-        for (const auto& stmt : funcDef.body) {
-            compileNode(stmt, module, builder, nestedScope, diagnostics);
+            for (const auto& stmt : funcDef.body) {
+                compileNode(stmt, module, builder, nestedScope, diagnostics);
+            }
+
+            // TODO: support other return types
+            builder.CreateRet(llvm::ConstantInt::get(builder.getInt32Ty(), 0));
         }
-
-        builder.CreateRetVoid();
 
         // TODO: memory management
         auto function = new Function{
-            funcDef.name, types, scope.getType("Void"),
-            new FunctionDefinition{funcDef.name, funcDef.parameters,
+            funcDef.name, types, scope._getType("Void"),
+            new FunctionDefinition{funcDef.name, false, funcDef.parameters,
                                    funcDef.body, funcDef.tokens},
             func};
         scope.functions[funcDef.name] = function;
@@ -171,7 +195,7 @@ auto compileNode(const Node& node, llvm::Module& module,
     } break;
     case NodeType::integer_literal: {
         return llvm::ConstantInt::get(
-            scope.getType("Int")->llvm,
+            scope._getType("Int")->llvm,
             std::get<IntegerLiteral>(node.value).value, false);
     } break;
     case NodeType::identifier: {
@@ -213,18 +237,9 @@ auto Compiler::compile(Buffer<std::vector<Node>> ast, Diagnostics& diagnostics)
     scope.types["String"] =
         new Type{"String", builder.getInt8Ty()->getPointerTo()};
     scope.types["Int"] = new Type{"Int", builder.getInt64Ty()};
+    scope.types["Int32"] = new Type{"Int32", builder.getInt32Ty()};
+    scope.types["UInt8"] = new Type{"UInt8", builder.getInt8Ty()};
     scope.types["Void"] = new Type{"Void", builder.getVoidTy()};
-
-    scope.functions["print"] =
-        new Function{"print",
-                     {scope.getType("String")},
-                     scope.getType("Void"),
-                     nullptr,
-                     llvm::Function::Create(
-                         llvm::FunctionType::get(
-                             builder.getInt32Ty(),
-                             {builder.getInt8Ty()->getPointerTo()}, true),
-                         llvm::Function::ExternalLinkage, "printf", module)};
 
     while (!ast.empty()) {
         const auto node = ast.pop();

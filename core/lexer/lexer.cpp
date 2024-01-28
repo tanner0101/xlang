@@ -53,6 +53,21 @@ auto Lexer::lex(Buffer<std::string> input, Diagnostics& diagnostics)
                 tokens.emplace_back(TokenType::comma, source);
                 source.column += 1;
                 break;
+            case '.':
+                input.pop();
+                tokens.emplace_back(TokenType::dot, source);
+                source.column += 1;
+                break;
+            case '<':
+                input.pop();
+                tokens.emplace_back(TokenType::angle_open, source);
+                source.column += 1;
+                break;
+            case '>':
+                input.pop();
+                tokens.emplace_back(TokenType::angle_close, source);
+                source.column += 1;
+                break;
             case '"':
                 state = LexerState::string_literal;
                 input.pop();
@@ -89,13 +104,17 @@ auto Lexer::lex(Buffer<std::string> input, Diagnostics& diagnostics)
             }
             break;
         case LexerState::identifier:
-            if (std::isalpha(input.peek())) {
+            if (std::isalnum(input.peek())) {
                 identifier.push_back(input.pop());
             } else {
                 if (identifier == "fn") {
                     tokens.emplace_back(TokenType::function, source);
+                } else if (identifier == "extern") {
+                    tokens.emplace_back(TokenType::external, source);
                 } else if (identifier == "var") {
                     tokens.emplace_back(TokenType::variable, source);
+                } else if (identifier == "struct") {
+                    tokens.emplace_back(TokenType::structure, source);
                 } else {
                     tokens.emplace_back(TokenType::identifier, identifier,
                                         source);

@@ -33,7 +33,17 @@ auto main(int argc, char* argv[]) -> int {
     auto diagnostics = Diagnostics{};
 
     const auto tokens = lexer.lex(program, diagnostics);
+    // for (const auto& token : tokens) {
+    //     std::cerr << token << std::endl;
+    // }
+    // return 0;
+
     const auto ast = parser.parse(tokens, diagnostics);
+    // for (const auto& node : ast) {
+    //     std::cerr << node << std::endl;
+    // }
+    // return 0;
+
     const auto ir = compiler.compile(ast, diagnostics);
     std::cout << ir << std::endl;
 

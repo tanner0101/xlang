@@ -144,6 +144,25 @@ auto semanticToken(xlang::Token token, std::size_t length,
     data.push_back(static_cast<int>(modifier));
 }
 
+auto semanticType(xlang::TypeIdentifier type, boost::json::array& data,
+                  xlang::Source& previous) -> void {
+    semanticToken(type.tokens.name, type.name.length(), SemanticTokenType::type,
+                  SemanticTokenModifier::none, data, previous);
+    for (const auto& genericParameter : type.genericParameters) {
+        semanticType(genericParameter, data, previous);
+    }
+}
+
+auto semanticIdentifier(xlang::Identifier identifier, boost::json::array& data,
+                        xlang::Source& previous) -> void {
+    semanticToken(identifier.token, identifier.name.length(),
+                  SemanticTokenType::variable, SemanticTokenModifier::none,
+                  data, previous);
+    if (identifier.next) {
+        semanticIdentifier(*identifier.next, data, previous);
+    }
+}
+
 auto semanticNode(xlang::Node node, boost::json::array& data,
                   xlang::Source& previous) -> void {
     switch (node.type) {
@@ -174,28 +193,45 @@ auto semanticNode(xlang::Node node, boost::json::array& data,
     } break;
     case xlang::NodeType::identifier: {
         auto identifier = std::get<xlang::Identifier>(node.value);
-        semanticToken(identifier.token, identifier.name.length(),
-                      SemanticTokenType::variable, SemanticTokenModifier::none,
-                      data, previous);
+        semanticIdentifier(identifier, data, previous);
     } break;
-    case xlang::NodeType::function_definition: {
-        auto fundef = std::get<xlang::FunctionDefinition>(node.value);
-        semanticToken(fundef.tokens.keyword, 2, SemanticTokenType::keyword,
+    case xlang::NodeType::struct_definition: {
+        auto value = std::get<xlang::StructDefinition>(node.value);
+        semanticToken(value.tokens.keyword, 6, SemanticTokenType::keyword,
                       SemanticTokenModifier::none, data, previous);
         semanticToken(
-            fundef.tokens.identifier,
-            std::get<std::string>(fundef.tokens.identifier.value).length(),
+            value.tokens.identifier,
+            std::get<std::string>(value.tokens.identifier.value).length(),
+            SemanticTokenType::type, SemanticTokenModifier::declaration, data,
+            previous);
+        for (const auto& member : value.members) {
+            semanticToken(member.tokens.name, member.name.length(),
+                          SemanticTokenType::parameter,
+                          SemanticTokenModifier::none, data, previous);
+            semanticType(member.type, data, previous);
+        }
+    } break;
+    case xlang::NodeType::function_definition: {
+        auto value = std::get<xlang::FunctionDefinition>(node.value);
+        if (value.tokens.external.has_value()) {
+            semanticToken(value.tokens.external.value(), 6,
+                          SemanticTokenType::keyword,
+                          SemanticTokenModifier::declaration, data, previous);
+        }
+        semanticToken(value.tokens.keyword, 2, SemanticTokenType::keyword,
+                      SemanticTokenModifier::none, data, previous);
+        semanticToken(
+            value.tokens.identifier,
+            std::get<std::string>(value.tokens.identifier.value).length(),
             SemanticTokenType::function, SemanticTokenModifier::none, data,
             previous);
-        for (const auto& param : fundef.parameters) {
+        for (const auto& param : value.parameters) {
             semanticToken(param.tokens.identifier, param.name.length(),
                           SemanticTokenType::parameter,
                           SemanticTokenModifier::none, data, previous);
-            semanticToken(param.tokens.type, param.type.length(),
-                          SemanticTokenType::type, SemanticTokenModifier::none,
-                          data, previous);
+            semanticType(param.type, data, previous);
         }
-        for (const auto& body : fundef.body) {
+        for (const auto& body : value.body) {
             semanticNode(body, data, previous);
         }
     } break;

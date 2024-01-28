@@ -3,6 +3,7 @@
 #include "core/util/enum.h"
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -12,9 +13,79 @@
 namespace xlang {
 
 ENUM_CLASS(NodeType, identifier, variable_definition, function_definition,
-           function_call, string_literal, integer_literal);
+           function_call, string_literal, integer_literal, struct_definition);
 
 struct Node;
+
+struct TypeIdentifier {
+    std::string name;
+
+    std::vector<TypeIdentifier> genericParameters;
+
+    struct Tokens {
+        Token name;
+        std::optional<Token> genericOpen;
+        std::optional<Token> genericClose;
+
+        auto operator==(const Tokens& other) const -> bool = default;
+    };
+
+    Tokens tokens;
+
+    auto operator==(const TypeIdentifier& other) const -> bool = default;
+};
+
+inline auto operator<<(std::ostream& os, const TypeIdentifier& value)
+    -> std::ostream& {
+    os << value.name;
+    if (value.genericParameters.size() > 0) {
+        os << "<";
+    }
+    bool first = true;
+    for (const auto& genericParameter : value.genericParameters) {
+        if (!first) {
+            os << ",";
+        }
+        first = false;
+        os << genericParameter;
+    }
+    if (value.genericParameters.size() > 0) {
+        os << ">";
+    }
+    return os;
+}
+
+struct StructDefinition {
+    std::string name;
+
+    struct Member {
+        std::string name;
+        TypeIdentifier type;
+
+        struct Tokens {
+            Token name;
+            Token colon;
+            auto operator==(const Tokens& other) const -> bool = default;
+        };
+
+        Tokens tokens;
+
+        auto operator==(const Member& other) const -> bool = default;
+    };
+
+    std::vector<Member> members;
+
+    struct Tokens {
+        Token keyword;
+        Token identifier;
+        Token curlyOpen;
+        Token curlyClose;
+        auto operator==(const Tokens& other) const -> bool = default;
+    };
+    Tokens tokens;
+
+    auto operator==(const StructDefinition& other) const -> bool = default;
+};
 
 struct FunctionCall {
     std::string name;
@@ -31,15 +102,15 @@ struct FunctionCall {
 
 struct FunctionDefinition {
     std::string name;
+    bool external;
 
     struct Parameter {
         std::string name;
-        std::string type;
+        TypeIdentifier type;
 
         struct Tokens {
             Token identifier;
             Token colon;
-            Token type;
             auto operator==(const Tokens& other) const -> bool = default;
         };
         Tokens tokens;
@@ -51,6 +122,7 @@ struct FunctionDefinition {
     std::vector<Node> body;
 
     struct Tokens {
+        std::optional<Token> external;
         Token keyword;
         Token identifier;
         auto operator==(const Tokens& other) const -> bool = default;
@@ -77,6 +149,7 @@ struct VariableDefinition {
 
 struct Identifier {
     std::string name;
+    std::shared_ptr<Identifier> next;
     Token token;
     auto operator==(const Identifier& other) const -> bool = default;
 };
@@ -95,7 +168,7 @@ struct IntegerLiteral {
 
 using NodeValue =
     std::variant<StringLiteral, IntegerLiteral, Identifier, FunctionDefinition,
-                 FunctionCall, VariableDefinition>;
+                 FunctionCall, VariableDefinition, StructDefinition>;
 
 struct Node {
     NodeType type;
@@ -103,12 +176,12 @@ struct Node {
 
     Node(NodeType type, NodeValue value)
         : type{type}, value{std::move(value)} {}
-    Node(FunctionCall functionCall)
-        : Node(NodeType::function_call, functionCall) {}
-    Node(FunctionDefinition functionDefinition)
-        : Node(NodeType::function_definition, functionDefinition) {}
-    Node(VariableDefinition variableDefinition)
-        : Node(NodeType::variable_definition, variableDefinition) {}
+    Node(FunctionCall value) : Node(NodeType::function_call, value) {}
+    Node(FunctionDefinition value)
+        : Node(NodeType::function_definition, value) {}
+    Node(VariableDefinition value)
+        : Node(NodeType::variable_definition, value) {}
+    Node(StructDefinition value) : Node(NodeType::struct_definition, value) {}
     Node(Identifier identifier) : Node(NodeType::identifier, identifier) {}
     Node(StringLiteral stringLiteral)
         : Node(NodeType::string_literal, stringLiteral) {}
@@ -127,17 +200,44 @@ inline auto operator<<(std::ostream& os, Node node) -> std::ostream& {
         break;
     case NodeType::variable_definition: {
         auto variableDefinition = std::get<VariableDefinition>(node.value);
-        os << "(" << variableDefinition.name << "=" << variableDefinition.value
+        os << "(" << variableDefinition.name << "=" << *variableDefinition.value
            << ")";
     } break;
+    case NodeType::struct_definition: {
+        auto value = std::get<StructDefinition>(node.value);
+        os << "(" << value.name;
+        if (value.members.size() > 0) {
+            os << ",";
+        }
+        for (auto member : value.members) {
+            os << member.name << ":" << member.type;
+        }
+        os << ")";
+    } break;
     case NodeType::function_definition: {
-        auto functionDefinition = std::get<FunctionDefinition>(node.value);
-        os << "(" << functionDefinition.name << ",";
-        for (auto parameter : functionDefinition.parameters) {
+        auto value = std::get<FunctionDefinition>(node.value);
+        os << "(" << value.name;
+        if (value.external) {
+            os << ",external";
+        }
+        if (value.parameters.size() > 0) {
+            os << ",";
+        }
+        auto first = true;
+        for (auto parameter : value.parameters) {
+            if (!first)
+                os << ",";
+            first = false;
             os << parameter.name << ":" << parameter.type;
         }
-        os << ",";
-        for (auto body : functionDefinition.body) {
+        if (value.body.size() > 0) {
+            os << ",";
+        }
+        first = true;
+        for (auto body : value.body) {
+            if (!first)
+                os << ",";
+            first = false;
             os << body;
         }
         os << ")";

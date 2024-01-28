@@ -12,6 +12,7 @@ TEST(CompilerTest, TestCompile) {
     auto tokens = std::vector<Token>{Token{TokenType::identifier, Source{}}};
     auto ast = std::vector<Node>{{FunctionDefinition{
         "main",
+        false,
         std::vector<FunctionDefinition::Parameter>{},
         std::vector<Node>{
             {FunctionCall{"print",
@@ -19,7 +20,7 @@ TEST(CompilerTest, TestCompile) {
                               "Hello, world!",
                               {{Token(TokenType::string_literal, Source{})}}}}},
                           {Token(TokenType::identifier, "print", Source{})}}}},
-        {Token(TokenType::function, Source{}),
+        {std::nullopt, Token(TokenType::function, Source{}),
          Token(TokenType::identifier, "main", Source{})}}}};
     const auto lli = compiler.compile(ast, diagnostics);
     ASSERT_EQ(lli, R"(; ModuleID = 'xlang'

@@ -23,6 +23,7 @@ TEST(ParserTest, TestParsing) {
     auto ast = parser.parse(tokens, diagnostics);
     auto expected = std::vector<Node>{{FunctionDefinition{
         "main",
+        false,
         std::vector<FunctionDefinition::Parameter>{},
         std::vector<Node>{{FunctionCall{
             "print",
@@ -31,6 +32,7 @@ TEST(ParserTest, TestParsing) {
                 {Token{TokenType::string_literal, "Hello, world!", source}}}},
             {Token{TokenType::identifier, "print", source}}}}},
         {
+            std::nullopt,
             Token{TokenType::function, source},
             Token{TokenType::identifier, "main", source},
         }}}};

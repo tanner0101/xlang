@@ -14,9 +14,6 @@
                 "BOOST_JSON_NO_SSE2"
             ],
             "compilerPath": "/usr/bin/gcc",
-            "browse": {
-                "limitSymbolsToIncludedHeaders": true
-            },
             "cStandard": "c23",
             "cppStandard": "c++23"
         }

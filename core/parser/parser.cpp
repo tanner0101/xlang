@@ -12,6 +12,7 @@ auto require_next_token(TokenType type, std::string error, Token previousToken,
     if (!token.has_value() || token.value().type != type) {
         diagnostics.push_error(error, token.has_value() ? token.value().source
                                                         : previousToken.source);
+        return std::nullopt;
     }
     return token;
 }
@@ -52,18 +53,78 @@ auto parse_function_call(Token identifier, Buffer<std::vector<Token>>& tokens,
     return Node{FunctionCall{name, arguments, {identifier}}};
 }
 
-auto parse_identifier_or_function_call(Token identifier,
+auto parse_identifier_or_function_call(Token previousToken,
                                        Buffer<std::vector<Token>>& tokens,
                                        Diagnostics& diagnostics)
     -> std::optional<Node> {
-    auto name = std::get<std::string>(identifier.value);
 
+    auto identifier =
+        require_next_token(TokenType::identifier, "Expected identifier",
+                           previousToken, tokens, diagnostics);
+    if (!identifier.has_value())
+        return std::nullopt;
+
+    auto name = std::get<std::string>(identifier.value().value);
+
+    std::shared_ptr<Identifier> nested = nullptr;
     auto next = tokens.safe_peek();
-    if (next.has_value() && next.value().type == TokenType::paren_open) {
-        return parse_function_call(identifier, tokens, diagnostics);
+    if (next.has_value()) {
+        if (next.value().type == TokenType::paren_open) {
+            return parse_function_call(identifier.value(), tokens, diagnostics);
+        } else if (next.value().type == TokenType::dot) {
+            auto maybeNested = parse_identifier_or_function_call(
+                tokens.pop(), tokens, diagnostics);
+            if (!maybeNested.has_value() ||
+                maybeNested.value().type != NodeType::identifier) {
+                diagnostics.push_error("Expected nested identifier",
+                                       identifier.value().source);
+                return std::nullopt;
+            }
+            nested = std::make_shared<Identifier>(
+                std::get<Identifier>(maybeNested.value().value));
+        }
     }
 
-    return Node{Identifier{name, {identifier}}};
+    return Node{Identifier{name, nested, {identifier.value()}}};
+}
+
+auto parse_type_identifier(Token previousToken,
+                           Buffer<std::vector<Token>>& tokens,
+                           Diagnostics& diagnostics)
+    -> std::optional<TypeIdentifier> {
+    auto name = require_next_token(TokenType::identifier, "Expected type name",
+                                   previousToken, tokens, diagnostics);
+
+    if (!name.has_value())
+        return std::nullopt;
+
+    auto genericParameters = std::vector<TypeIdentifier>{};
+
+    auto maybeGenericStart = tokens.safe_peek();
+    std::optional<Token> maybeGenericEnd = std::nullopt;
+    if (maybeGenericStart.has_value() &&
+        maybeGenericStart.value().type == TokenType::angle_open) {
+
+        auto genericParameter =
+            parse_type_identifier(tokens.pop(), tokens, diagnostics);
+        if (!genericParameter.has_value())
+            return std::nullopt;
+
+        genericParameters.push_back(genericParameter.value());
+
+        // TODO: support more than one generic parameter
+
+        maybeGenericEnd = require_next_token(TokenType::angle_close,
+                                             "Expected close angle bracket",
+                                             name.value(), tokens, diagnostics);
+        if (!maybeGenericEnd.has_value())
+            return std::nullopt;
+    }
+
+    return std::make_optional(
+        TypeIdentifier{std::get<std::string>(name.value().value),
+                       genericParameters,
+                       {name.value(), maybeGenericStart, maybeGenericEnd}});
 }
 
 auto parse_function_definition_parameter(Token keyword,
@@ -83,22 +144,109 @@ auto parse_function_definition_parameter(Token keyword,
     if (!colon.has_value())
         return std::nullopt;
 
-    auto type =
-        require_next_token(TokenType::identifier, "Expected argument type",
-                           colon.value(), tokens, diagnostics);
-    if (!type.has_value())
+    auto type = parse_type_identifier(colon.value(), tokens, diagnostics);
+    if (!type.has_value()) {
         return std::nullopt;
+    }
 
     return std::make_optional(FunctionDefinition::Parameter{
         std::get<std::string>(identifier.value().value),
-        std::get<std::string>(type.value().value),
-        {identifier.value(), colon.value(), type.value()}});
+        type.value(),
+        {identifier.value(), colon.value()}});
+}
+
+auto parse_struct_member(Token keyword, Buffer<std::vector<Token>>& tokens,
+                         Diagnostics& diagnostics)
+    -> std::optional<StructDefinition::Member> {
+    auto identifier =
+        require_next_token(TokenType::identifier, "Expected member name",
+                           keyword, tokens, diagnostics);
+    if (!identifier.has_value()) {
+        return std::nullopt;
+    }
+
+    auto colon = require_next_token(TokenType::colon, "Expected colon", keyword,
+                                    tokens, diagnostics);
+    if (!colon.has_value()) {
+        return std::nullopt;
+    }
+
+    auto type = parse_type_identifier(colon.value(), tokens, diagnostics);
+    if (!type.has_value()) {
+        return std::nullopt;
+    }
+
+    return std::make_optional(StructDefinition::Member{
+        std::get<std::string>(identifier.value().value),
+        type.value(),
+        {identifier.value(), colon.value()},
+    });
+}
+
+auto parse_struct_definition(Token keyword, Buffer<std::vector<Token>>& tokens,
+                             Diagnostics& diagnostics) -> std::optional<Node> {
+    auto identifier =
+        require_next_token(TokenType::identifier, "Expected struct name",
+                           keyword, tokens, diagnostics);
+    if (!identifier.has_value())
+        return std::nullopt;
+
+    auto name = std::get<std::string>(identifier.value().value);
+
+    auto curlyOpen =
+        require_next_token(TokenType::curly_open, "Expected open curly",
+                           identifier.value(), tokens, diagnostics);
+    if (!curlyOpen.has_value())
+        return std::nullopt;
+
+    auto members = std::vector<StructDefinition::Member>{};
+
+    std::optional<Token> curlyClose = std::nullopt;
+    while (true) {
+        auto token = tokens.safe_peek();
+        if (!token.has_value()) {
+            diagnostics.push_error("Expected struct members",
+                                   identifier.value().source);
+            return std::nullopt;
+        }
+
+        if (token.value().type == TokenType::curly_close) {
+            curlyClose = tokens.safe_pop();
+            break;
+        }
+
+        auto member = parse_struct_member(token.value(), tokens, diagnostics);
+        if (!member.has_value()) {
+            tokens.pop();
+            continue;
+        }
+        members.push_back(member.value());
+    }
+
+    if (!curlyClose.has_value())
+        return std::nullopt;
+
+    return std::make_optional(Node{StructDefinition{
+        name,
+        members,
+        {keyword, identifier.value(), curlyOpen.value(), curlyClose.value()}}});
 }
 
 auto parse_function_definition(Token keyword,
                                Buffer<std::vector<Token>>& tokens,
                                Diagnostics& diagnostics)
     -> std::optional<Node> {
+    std::optional<Token> externalKeyword;
+    if (keyword.type == TokenType::external) {
+        externalKeyword = keyword;
+        auto maybeKeyword =
+            require_next_token(TokenType::function, "Expected function keyword",
+                               keyword, tokens, diagnostics);
+        if (!maybeKeyword.has_value())
+            return std::nullopt;
+        keyword = maybeKeyword.value();
+    }
+
     auto identifier =
         require_next_token(TokenType::identifier, "Expected function name",
                            keyword, tokens, diagnostics);
@@ -136,31 +284,39 @@ auto parse_function_definition(Token keyword,
         parameters.push_back(parameter.value());
     }
 
-    require_next_token(TokenType::curly_open, "Expected open curly",
-                       identifier.value(), tokens, diagnostics);
-
     auto body = std::vector<Node>{};
-    while (true) {
-        auto token = tokens.safe_peek();
-        if (!token.has_value()) {
-            diagnostics.push_error("Expected function body",
-                                   identifier.value().source);
-            return std::nullopt;
-        }
+    if (!externalKeyword.has_value()) {
+        require_next_token(TokenType::curly_open, "Expected open curly",
+                           identifier.value(), tokens, diagnostics);
 
-        if (token.value().type == TokenType::curly_close) {
-            tokens.pop();
-            break;
-        }
+        while (true) {
+            auto token = tokens.safe_peek();
+            if (!token.has_value()) {
+                diagnostics.push_error("Expected function body",
+                                       identifier.value().source);
+                return std::nullopt;
+            }
 
-        auto expr = parse_expression(tokens, diagnostics);
-        if (!expr.has_value())
-            continue;
-        body.push_back(expr.value());
+            if (token.value().type == TokenType::curly_close) {
+                tokens.pop();
+                break;
+            }
+
+            auto expr = parse_expression(tokens, diagnostics);
+            if (!expr.has_value()) {
+                tokens.pop();
+                continue;
+            }
+            body.push_back(expr.value());
+        }
     }
 
-    return std::make_optional(Node{FunctionDefinition{
-        name, parameters, body, {keyword, identifier.value()}}});
+    return std::make_optional(Node{
+        FunctionDefinition{name,
+                           externalKeyword.has_value(),
+                           parameters,
+                           body,
+                           {externalKeyword, keyword, identifier.value()}}});
 }
 
 auto parse_variable_definition(Buffer<std::vector<Token>>& tokens,
@@ -197,9 +353,12 @@ auto parse_expression(Buffer<std::vector<Token>>& tokens,
                       Diagnostics& diagnostics) -> std::optional<Node> {
     switch (tokens.peek().type) {
     case TokenType::identifier:
-        return parse_identifier_or_function_call(tokens.pop(), tokens,
+        return parse_identifier_or_function_call(tokens.peek(), tokens,
                                                  diagnostics);
+    case TokenType::structure:
+        return parse_struct_definition(tokens.pop(), tokens, diagnostics);
     case TokenType::function:
+    case TokenType::external:
         return parse_function_definition(tokens.pop(), tokens, diagnostics);
     case TokenType::variable:
         return parse_variable_definition(tokens, diagnostics, tokens.pop());
