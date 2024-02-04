@@ -186,12 +186,8 @@ auto compile_function_definition(const FunctionDefinition& value, Scope& scope)
         }
     }
 
-    // TODO: support returning structs to stack
     auto* func = llvm::Function::Create(
-        llvm::FunctionType::get(return_type->semantic == Type::Semantic::value
-                                    ? return_type->llvm
-                                    : return_type->llvm->getPointerTo(),
-                                llvm_types, false),
+        llvm::FunctionType::get(return_type->llvm, llvm_types, false),
         llvm::Function::ExternalLinkage, value.name, scope.module);
 
     auto args = func->arg_begin(); // NOLINT(readability-qualified-auto)
@@ -247,7 +243,10 @@ auto compile_function_definition(const FunctionDefinition& value, Scope& scope)
                     node_source(*value.return_value));
                 return std::nullopt;
             }
-            scope.builder.CreateRet(return_value.value().llvm);
+
+            auto* const llvm_return = scope.builder.CreateLoad(
+                return_type->llvm, return_value.value().llvm, "retval");
+            scope.builder.CreateRet(llvm_return);
         }
     }
 
@@ -398,8 +397,17 @@ auto compile_function_call(const FunctionCall& value, Scope& scope)
         llvm_args.push_back(arg.llvm);
     }
 
-    return CompiledNode{scope.builder.CreateCall(func->llvm, llvm_args),
-                        func->return_type};
+    if (func->return_type == scope.get_void_type()) {
+        scope.builder.CreateCall(func->llvm, llvm_args);
+        return std::nullopt;
+    }
+
+    auto* const llvm_return_copy = scope.builder.CreateAlloca(
+        func->return_type->llvm, nullptr, value.name + "_return");
+    auto* const llvm_return = scope.builder.CreateCall(func->llvm, llvm_args);
+    scope.builder.CreateStore(llvm_return, llvm_return_copy);
+
+    return CompiledNode{llvm_return_copy, func->return_type};
 }
 
 auto compile_member_access(const MemberAccess& value, Scope& scope)
