@@ -1,5 +1,6 @@
 #include "parser.h"
 #include "core/lexer/token.h"
+#include "core/parser/node.h"
 
 using namespace xlang;
 
@@ -20,6 +21,15 @@ auto require_next_token(TokenType type, const std::string& error,
     }
 
     return tokens.pop();
+}
+
+auto peek_token_type(Buffer<std::vector<Token>>& tokens, TokenType type)
+    -> bool {
+    if (tokens.empty()) {
+        return false;
+    }
+
+    return tokens.peek().type == type;
 }
 
 auto parse_function_call(const Token& identifier,
@@ -303,6 +313,18 @@ auto parse_function_definition(Token keyword,
         parameters.push_back(parameter.value());
     }
 
+    std::optional<TypeIdentifier> return_type = std::nullopt;
+    if (peek_token_type(tokens, TokenType::arrow)) {
+        const auto arrow = tokens.pop();
+
+        return_type = parse_type_identifier(arrow, tokens, diagnostics);
+
+        if (!return_type.has_value()) {
+            diagnostics.push_error("Expected return type", arrow.source);
+            return std::nullopt;
+        }
+    }
+
     auto body = std::vector<Node>{};
     if (!external_keyword.has_value()) {
         require_next_token(TokenType::curly_open,
@@ -335,6 +357,7 @@ auto parse_function_definition(Token keyword,
         FunctionDefinition{name,
                            external_keyword.has_value(),
                            parameters,
+                           return_type,
                            body,
                            {external_keyword, keyword, identifier.value()}}});
 }
@@ -371,15 +394,6 @@ auto parse_variable_definition(Buffer<std::vector<Token>>& tokens,
                            {varToken, identifier.value(), assignment.value()}}};
 }
 
-auto peek_token_type(Buffer<std::vector<Token>>& tokens, TokenType type)
-    -> bool {
-    if (tokens.empty()) {
-        return false;
-    }
-
-    return tokens.peek().type == type;
-}
-
 auto parse_expression(Buffer<std::vector<Token>>& tokens,
                       Diagnostics& diagnostics) -> std::optional<Node> {
     std::cerr << "Parsing expression " << tokens.peek() << '\n';
@@ -410,7 +424,9 @@ auto parse_expression(Buffer<std::vector<Token>>& tokens,
             stoull(std::get<std::string>(token.value)), {token}}});
     } break;
     default: {
-        std::cerr << "Unexpected token: " << tokens.peek().type << '\n';
+        diagnostics.push_error("Unexpected token: " +
+                                   TokenType_to_string(tokens.peek().type),
+                               tokens.peek().source);
         return std::nullopt;
     } break;
     }

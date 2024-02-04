@@ -14,13 +14,13 @@ cc_library(
     includes = ["."],
     hdrs = glob(["**/*.h", "**/*.def", "**/*.inc", "**/*.td", "**/*.gen"]),
     linkopts = [
-        "-L/usr/lib/llvm-14/lib",
+        "-L/usr/lib/llvm-17/lib",
         "-lLLVM",
     ],
     visibility = ["//visibility:public"]
 )
 """,
-    path = "/usr/lib/llvm-14/include",
+    path = "/usr/lib/llvm-17/include",
 )
 
 new_local_repository(

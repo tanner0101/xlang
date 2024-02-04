@@ -20,9 +20,11 @@ template <Container T> class Buffer {
   public:
     Buffer(T s) : storage(std::move(s)) {}
 
-    [[nodiscard]] inline auto safe_peek() const
+    [[nodiscard]] inline auto safe_peek(int skip = 0) const
         -> std::optional<typename T::value_type> {
-        if (empty()) {
+
+        const auto position = this->position + skip;
+        if (position >= storage.size()) {
             return std::nullopt;
         }
 

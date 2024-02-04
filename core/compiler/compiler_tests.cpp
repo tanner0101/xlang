@@ -12,6 +12,7 @@ TEST(CompilerTest, TestCompile) {
         "main",
         false,
         std::vector<FunctionDefinition::Parameter>{},
+        std::nullopt,
         std::vector<Node>{
             {FunctionCall{"print",
                           std::vector<Node>{{StringLiteral{

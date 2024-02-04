@@ -6,8 +6,8 @@ struct String {
     raw: Pointer<UInt8>
 }
 
-extern fn printf(s: Pointer<UInt8>)
-extern fn puts(s: Pointer<UInt8>)
+extern fn printf(s: Pointer<UInt8>) -> Int32
+extern fn puts(s: Pointer<UInt8>) -> Int32
 
 fn print(string: String) {
     printf(string.raw)

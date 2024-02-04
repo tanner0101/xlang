@@ -226,6 +226,9 @@ auto semantic_node(xlang::Node node, boost::json::array& data,
                            SemanticTokenModifier::none, data, previous);
             semantic_type(param.type, data, previous);
         }
+        if (value.return_type.has_value()) {
+            semantic_type(value.return_type.value(), data, previous);
+        }
         for (const auto& body : value.body) {
             semantic_node(body, data, previous);
         }

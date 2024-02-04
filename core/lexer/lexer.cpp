@@ -76,6 +76,17 @@ auto xlang::lex(Buffer<std::string> input, Diagnostics& diagnostics)
                 state = LexerState::string_literal;
                 input.pop();
                 break;
+            case '-':
+                if (input.safe_peek(1) == '>') {
+                    input.pop();
+                    input.pop();
+                    tokens.emplace_back(TokenType::arrow, source);
+                    source.column += 2;
+                } else {
+                    input.pop();
+                    diagnostics.push_error("Expected arrow", source);
+                }
+                break;
             case ' ':
                 input.pop();
                 source.column += 1;

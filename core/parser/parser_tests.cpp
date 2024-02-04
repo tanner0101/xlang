@@ -1,5 +1,6 @@
 #include "parser.h"
 #include <gtest/gtest.h>
+#include <optional>
 
 using namespace xlang;
 using namespace xlang;
@@ -23,6 +24,7 @@ TEST(ParserTest, TestParsing) {
         "main",
         false,
         std::vector<FunctionDefinition::Parameter>{},
+        std::nullopt,
         std::vector<Node>{{FunctionCall{
             "print",
             std::vector<Node>{StringLiteral{

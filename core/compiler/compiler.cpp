@@ -2,9 +2,9 @@
 #include "core/parser/node.h"
 #include "core/util/diagnostics.h"
 #include <cstddef>
-#include <llvm-14/llvm/IR/Instructions.h>
-#include <llvm-14/llvm/IR/LLVMContext.h>
-#include <llvm-14/llvm/IR/Value.h>
+#include <llvm-17/llvm/IR/Instructions.h>
+#include <llvm-17/llvm/IR/LLVMContext.h>
+#include <llvm-17/llvm/IR/Value.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
 #include <memory>
@@ -80,6 +80,10 @@ struct Scope {
 
     Scope(Scope&&) = delete;
     auto operator=(Scope&&) -> Scope& = delete;
+
+    auto get_void_type() -> std::shared_ptr<Type> {
+        return get_type_by_name("Void");
+    }
 
     auto get_variable(const std::string& name) -> std::shared_ptr<Variable> {
         if (variables.find(name) != variables.end()) {
@@ -170,9 +174,19 @@ auto compile_function_definition(const FunctionDefinition& value, Scope& scope)
         types.push_back(type);
     }
 
-    // TODO: support return types
+    auto return_type = scope.get_void_type();
+    if (value.return_type.has_value()) {
+        return_type = scope.get_type(value.return_type.value());
+        if (!return_type) {
+            scope.diagnostics.push_error(
+                "No type named " + value.return_type.value().name + " found",
+                value.tokens.identifier.source);
+            return std::nullopt;
+        }
+    }
+
     auto* func = llvm::Function::Create(
-        llvm::FunctionType::get(scope.builder.getInt32Ty(), llvm_types, false),
+        llvm::FunctionType::get(return_type->llvm, llvm_types, false),
         llvm::Function::ExternalLinkage, value.name, scope.module);
 
     auto args = func->arg_begin(); // NOLINT(readability-qualified-auto)
@@ -198,14 +212,17 @@ auto compile_function_definition(const FunctionDefinition& value, Scope& scope)
             compile_node(stmt, nested_scope);
         }
 
-        // TODO: support other return types
-        scope.builder.CreateRet(
-            llvm::ConstantInt::get(scope.builder.getInt32Ty(), 0));
+        if (return_type == scope.get_void_type()) {
+            scope.builder.CreateRetVoid();
+        } else {
+            scope.builder.CreateRet(
+                llvm::ConstantInt::get(return_type->llvm, 0));
+        }
     }
 
     warn_unused_variables(nested_scope);
 
-    auto function = Function{value.name, types, scope.get_type_by_name("Void"),
+    auto function = Function{value.name, types, return_type,
                              std::make_shared<FunctionDefinition>(value), func};
     scope.functions[value.name] = std::make_shared<Function>(function);
     return std::nullopt;

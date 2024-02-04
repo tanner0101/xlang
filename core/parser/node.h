@@ -134,7 +134,7 @@ struct FunctionDefinition {
         auto operator==(const Parameter& other) const -> bool = default;
     };
     std::vector<Parameter> parameters;
-
+    std::optional<TypeIdentifier> return_type;
     std::vector<Node> body;
 
     struct Tokens {

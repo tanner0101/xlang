@@ -1,9 +1,7 @@
 #pragma once
 
 #include "core/util/enum.h"
-#include <array>
 #include <iostream>
-#include <optional>
 #include <string>
 #include <variant>
 
@@ -14,7 +12,7 @@ namespace xlang {
 ENUM_CLASS(TokenType, function, variable, external, structure, equal, colon,
            comma, paren_open, paren_close, curly_open, curly_close, angle_open,
            angle_close, identifier, string_literal, integer_literal, new_line,
-           dot, unknown);
+           dot, arrow, unknown);
 
 struct Token {
     TokenType type;
