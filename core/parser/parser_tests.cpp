@@ -33,6 +33,7 @@ TEST(ParserTest, TestParsing) {
             {Token{TokenType::identifier, "print", source},
              Token{TokenType::paren_open, source},
              Token{TokenType::paren_close, source}}}}},
+        nullptr,
         {
             std::nullopt,
             Token{TokenType::function, source},

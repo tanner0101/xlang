@@ -13,6 +13,14 @@ fn print(string: String) {
     printf(string.raw)
 }
 
+fn meaningOfLife() -> Int {
+    return 42
+}
+
+fn test() -> String {
+    return "test"
+}
+
 struct Planet {
     name: String
     moons: Int
@@ -29,5 +37,6 @@ fn main() {
     print(erth.name)
     var mars = Planet("Mars", 2)
     greet(mars.name)
+    print(test())
 }
 

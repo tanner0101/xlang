@@ -136,11 +136,13 @@ struct FunctionDefinition {
     std::vector<Parameter> parameters;
     std::optional<TypeIdentifier> return_type;
     std::vector<Node> body;
+    std::shared_ptr<Node> return_value;
 
     struct Tokens {
         std::optional<Token> external;
         Token keyword;
         Token identifier;
+        std::optional<Token> _return;
         auto operator==(const Tokens& other) const -> bool = default;
     };
     Tokens tokens;
@@ -215,7 +217,10 @@ inline auto node_source(Node node) -> Source {
         return std::get<StringLiteral>(node.value).token.source;
     case NodeType::member_access:
         return node_source(*std::get<MemberAccess>(node.value).member);
+    case NodeType::function_call:
+        return std::get<FunctionCall>(node.value).tokens.identifier.source;
     default:
+        std::cerr << "Unknown node type: " << node.type << '\n';
         return Source{};
     }
 }

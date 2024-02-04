@@ -119,7 +119,7 @@ auto xlang::lex(Buffer<std::string> input, Diagnostics& diagnostics)
             }
             break;
         case LexerState::identifier:
-            if (std::isalnum(input.peek()) != 0) {
+            if (std::isalnum(input.peek()) != 0 || input.peek() == '_') {
                 identifier.push_back(input.pop());
             } else {
                 if (identifier == "fn") {
@@ -130,6 +130,8 @@ auto xlang::lex(Buffer<std::string> input, Diagnostics& diagnostics)
                     tokens.emplace_back(TokenType::variable, source);
                 } else if (identifier == "struct") {
                     tokens.emplace_back(TokenType::structure, source);
+                } else if (identifier == "return") {
+                    tokens.emplace_back(TokenType::_return, source);
                 } else {
                     tokens.emplace_back(TokenType::identifier, identifier,
                                         source);

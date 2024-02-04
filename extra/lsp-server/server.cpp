@@ -232,6 +232,15 @@ auto semantic_node(xlang::Node node, boost::json::array& data,
         for (const auto& body : value.body) {
             semantic_node(body, data, previous);
         }
+        if (value.tokens._return.has_value()) {
+            semantic_token(value.tokens._return.value(),
+                           std::string("return").length(),
+                           SemanticTokenType::keyword,
+                           SemanticTokenModifier::none, data, previous);
+        }
+        if (value.return_value != nullptr) {
+            semantic_node(*value.return_value, data, previous);
+        }
     } break;
     case xlang::NodeType::function_call: {
         auto funcal = std::get<xlang::FunctionCall>(node.value);

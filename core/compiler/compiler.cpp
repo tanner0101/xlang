@@ -1,4 +1,5 @@
 #include "compiler.h"
+#include "core/lexer/token.h"
 #include "core/parser/node.h"
 #include "core/util/diagnostics.h"
 #include <cstddef>
@@ -185,8 +186,12 @@ auto compile_function_definition(const FunctionDefinition& value, Scope& scope)
         }
     }
 
+    // TODO: support returning structs to stack
     auto* func = llvm::Function::Create(
-        llvm::FunctionType::get(return_type->llvm, llvm_types, false),
+        llvm::FunctionType::get(return_type->semantic == Type::Semantic::value
+                                    ? return_type->llvm
+                                    : return_type->llvm->getPointerTo(),
+                                llvm_types, false),
         llvm::Function::ExternalLinkage, value.name, scope.module);
 
     auto args = func->arg_begin(); // NOLINT(readability-qualified-auto)
@@ -213,10 +218,36 @@ auto compile_function_definition(const FunctionDefinition& value, Scope& scope)
         }
 
         if (return_type == scope.get_void_type()) {
+            if (value.return_value != nullptr) {
+                scope.diagnostics.push_error(
+                    "Function '" + value.name +
+                        "' has a return value but is declared as void.",
+                    value.tokens.identifier.source);
+                return std::nullopt;
+            }
             scope.builder.CreateRetVoid();
         } else {
-            scope.builder.CreateRet(
-                llvm::ConstantInt::get(return_type->llvm, 0));
+            if (!value.return_value) {
+                scope.diagnostics.push_error("Function '" + value.name +
+                                                 "' is missing a return value.",
+                                             value.tokens.identifier.source);
+                return std::nullopt;
+            }
+
+            auto return_value = compile_node(*value.return_value, nested_scope);
+            if (!return_value.has_value()) {
+                return std::nullopt;
+            }
+
+            if (return_value.value().type != return_type) {
+                scope.diagnostics.push_error(
+                    "Incorrect return type for function '" + value.name +
+                        "'. Expected " + return_type->name + ", got " +
+                        return_value.value().type->name + ".",
+                    node_source(*value.return_value));
+                return std::nullopt;
+            }
+            scope.builder.CreateRet(return_value.value().llvm);
         }
     }
 
@@ -579,7 +610,8 @@ auto xlang::compile(Buffer<std::vector<Node>> ast, Diagnostics& diagnostics)
     scope.types["Pointer<UInt8>"] = std::make_shared<Type>(
         "Pointer<UInt8>", builder.getInt8Ty()->getPointerTo(),
         Type::Semantic::value);
-    scope.types["Void"] = std::make_shared<Type>("Void", builder.getVoidTy());
+    scope.types["Void"] = std::make_shared<Type>("Void", builder.getVoidTy(),
+                                                 Type::Semantic::value);
 
     while (!ast.empty()) {
         const auto node = ast.pop();

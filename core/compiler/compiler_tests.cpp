@@ -23,6 +23,7 @@ TEST(CompilerTest, TestCompile) {
                               Token(TokenType::paren_open, Source{}),
                               Token(TokenType::paren_close, Source{}),
                           }}}},
+        nullptr,
         {std::nullopt, Token(TokenType::function, Source{}),
          Token(TokenType::identifier, "main", Source{})}}}};
     const auto lli = compile(ast, diagnostics);

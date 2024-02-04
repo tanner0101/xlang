@@ -1,6 +1,7 @@
 #include "parser.h"
 #include "core/lexer/token.h"
 #include "core/parser/node.h"
+#include <memory>
 
 using namespace xlang;
 
@@ -326,6 +327,8 @@ auto parse_function_definition(Token keyword,
     }
 
     auto body = std::vector<Node>{};
+    std::shared_ptr<Node> return_value = nullptr;
+    std::optional<Token> return_token = std::nullopt;
     if (!external_keyword.has_value()) {
         require_next_token(TokenType::curly_open,
                            "Expected open curly parsing function definition",
@@ -344,6 +347,22 @@ auto parse_function_definition(Token keyword,
                 break;
             }
 
+            if (token.value().type == TokenType::_return) {
+                return_token = tokens.safe_pop();
+                const auto maybe_return_value =
+                    parse_expression(tokens, diagnostics);
+                if (!maybe_return_value.has_value()) {
+                    diagnostics.push_error("Expected return value",
+                                           token.value().source);
+                    tokens.safe_pop();
+                    continue;
+                }
+
+                return_value =
+                    std::make_shared<Node>(maybe_return_value.value());
+                continue;
+            }
+
             auto expr = parse_expression(tokens, diagnostics);
             if (!expr.has_value()) {
                 tokens.safe_pop();
@@ -353,13 +372,14 @@ auto parse_function_definition(Token keyword,
         }
     }
 
-    return std::make_optional(Node{
-        FunctionDefinition{name,
-                           external_keyword.has_value(),
-                           parameters,
-                           return_type,
-                           body,
-                           {external_keyword, keyword, identifier.value()}}});
+    return std::make_optional(Node{FunctionDefinition{
+        name,
+        external_keyword.has_value(),
+        parameters,
+        return_type,
+        body,
+        return_value,
+        {external_keyword, keyword, identifier.value(), return_token}}});
 }
 
 auto parse_variable_definition(Buffer<std::vector<Token>>& tokens,
