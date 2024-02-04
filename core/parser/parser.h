@@ -8,15 +8,12 @@
 
 namespace xlang {
 
-class Parser {
-  public:
-    auto parse(std::vector<Token> tokens, Diagnostics& diagnostics)
-        -> std::vector<Node> {
-        return parse(Buffer<std::vector<Token>>(tokens), diagnostics);
-    }
+auto parse(Buffer<std::vector<Token>> tokens, Diagnostics& diagnostics)
+    -> std::vector<Node>;
 
-    auto parse(Buffer<std::vector<Token>> tokens, Diagnostics& diagnostics)
-        -> std::vector<Node>;
-};
+inline auto parse(std::vector<Token> tokens, Diagnostics& diagnostics)
+    -> std::vector<Node> {
+    return parse(Buffer<std::vector<Token>>(std::move(tokens)), diagnostics);
+}
 
 } // namespace xlang

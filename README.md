@@ -27,3 +27,11 @@ cat hello_world.x | bazel run //core:xlang | lli
 # Tests
 
 Run tests using VSCode or `bazel test //...`.
+
+# Clangd
+
+To use clangd extension, install then run:
+
+```
+bazel run @hedron_compile_commands//:refresh_all
+```

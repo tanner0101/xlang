@@ -1,8 +1,10 @@
 #include "compiler.h"
-#include <cassert>
+#include "core/parser/node.h"
+#include <cstddef>
+#include <llvm-14/llvm/IR/Value.h>
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/IR/Module.h>
-#include <sstream>
+#include <memory>
 #include <string>
 
 using namespace xlang;
@@ -16,87 +18,89 @@ struct Type {
 
 struct Function {
     std::string name;
-    std::vector<Type*> parameterTypes;
-    Type* returnType;
+    std::vector<std::shared_ptr<Type>> parameterTypes;
+    std::shared_ptr<Type> returnType;
     const FunctionDefinition* definition;
     llvm::Function* llvm;
 };
 
 struct Variable {
     std::string name;
-    Type* type;
+    std::shared_ptr<Type> type;
     llvm::Value* llvm;
 };
 
 struct Scope {
-    std::unordered_map<std::string, Variable*> variables = {};
-    std::unordered_map<std::string, Function*> functions = {};
-    std::unordered_map<std::string, Type*> types = {};
+    std::unordered_map<std::string, std::shared_ptr<Variable>> variables = {};
+    std::unordered_map<std::string, std::shared_ptr<Function>> functions = {};
+    std::unordered_map<std::string, std::shared_ptr<Type>> types = {};
     Scope* parent = nullptr;
 
-    auto getVariable(const std::string& name) -> Variable* {
+    auto get_variable(const std::string& name) -> std::shared_ptr<Variable> {
         if (variables.find(name) != variables.end()) {
             return variables[name];
-        } else if (parent) {
-            return parent->getVariable(name);
-        } else {
-            return nullptr;
         }
+        if (parent != nullptr) {
+            return parent->get_variable(name);
+        }
+        return nullptr;
     }
 
-    auto getFunction(const std::string& name) -> Function* {
+    auto get_function(const std::string& name) -> std::shared_ptr<Function> {
         if (functions.find(name) != functions.end()) {
             return functions[name];
-        } else if (parent) {
-            return parent->getFunction(name);
-        } else {
-            return nullptr;
         }
+        if (parent != nullptr) {
+            return parent->get_function(name);
+        }
+        return nullptr;
     }
 
-    auto getType(const TypeIdentifier& type) -> Type* {
+    auto get_type(const TypeIdentifier& type) -> std::shared_ptr<Type> {
         if (type.name == "Pointer") {
             // TODO: this is so dumb
-            auto internal = getType(type.genericParameters[0]);
-            return getTypeByLlvm(internal->llvm->getPointerTo());
+            auto internal = get_type(type.genericParameters[0]);
+            return get_type_by_llvm(internal->llvm->getPointerTo());
         }
 
         if (types.find(type.name) != types.end()) {
             return types[type.name];
-        } else if (parent) {
-            return parent->getType(type);
-        } else {
-            return nullptr;
         }
+
+        if (parent != nullptr) {
+            return parent->get_type(type);
+        }
+
+        return nullptr;
     }
 
-    auto _getType(const std::string& name) -> Type* {
+    auto get_type_by_name(const std::string& name) -> std::shared_ptr<Type> {
         if (types.find(name) != types.end()) {
             return types[name];
-        } else if (parent) {
-            return parent->_getType(name);
-        } else {
-            return nullptr;
         }
+        if (parent != nullptr) {
+            return parent->get_type_by_name(name);
+        }
+        return nullptr;
     }
 
-    auto getTypeByLlvm(const llvm::Type* llvm) -> Type* {
+    auto get_type_by_llvm(const llvm::Type* llvm) -> std::shared_ptr<Type> {
         for (const auto& type : types) {
             if (type.second->llvm == llvm) {
                 return type.second;
             }
         }
-        if (parent) {
-            return parent->getTypeByLlvm(llvm);
+        if (parent != nullptr) {
+            return parent->get_type_by_llvm(llvm);
         }
 
         if (llvm->isPointerTy()) {
             // TODO: hack to support structs being pass by reference
-            return getTypeByLlvm(llvm->getPointerElementType());
+            return get_type_by_llvm(llvm->getPointerElementType());
         }
 
         for (const auto& type : types) {
-            std::cerr << type.first << std::endl;
+            std::cerr << type.first << '\n';
             type.second->llvm->dump();
         }
         llvm->dump();
@@ -105,80 +109,209 @@ struct Scope {
 
     auto push_local() -> Scope { return Scope{{}, {}, {}, this}; }
 };
+auto compile_node(const Node& node, llvm::Module& module,
+                  llvm::IRBuilder<>& builder, Scope& scope,
+                  Diagnostics& diagnostics) -> llvm::Value*;
 
-auto compileNode(const Node& node, llvm::Module& module,
-                 llvm::IRBuilder<>& builder, Scope& scope,
-                 Diagnostics& diagnostics) -> llvm::Value* {
-    std::cerr << "Compiling node " << node << std::endl;
-    switch (node.type) {
-    case NodeType::function_definition: {
-        auto& funcDef = std::get<FunctionDefinition>(node.value);
+auto compile_function_definition(const FunctionDefinition& value,
+                                 llvm::Module& module,
+                                 llvm::IRBuilder<>& builder, Scope& scope,
+                                 Diagnostics& diagnostics) -> llvm::Value* {
 
-        if (scope.functions.find(funcDef.name) != scope.functions.end()) {
-            diagnostics.push_error("Function '" + funcDef.name +
-                                       "' is already defined.",
-                                   funcDef.tokens.identifier.source);
+    if (scope.functions.find(value.name) != scope.functions.end()) {
+        diagnostics.push_error("Function '" + value.name +
+                                   "' is already defined.",
+                               value.tokens.identifier.source);
+        return nullptr;
+    }
+
+    std::vector<llvm::Type*> llvm_types{};
+    std::vector<std::shared_ptr<Type>> types{};
+    for (const auto& param : value.parameters) {
+        auto type = scope.get_type(param.type);
+        if (type == nullptr) {
+            diagnostics.push_error("No type named " + param.type.name +
+                                       " found",
+                                   param.tokens.identifier.source);
             return nullptr;
         }
+        if (type->definition != nullptr) {
+            llvm_types.push_back(type->llvm->getPointerTo());
+        } else {
+            llvm_types.push_back(type->llvm);
+        }
+        types.push_back(type);
+    }
 
-        std::vector<llvm::Type*> llvmTypes{};
-        std::vector<Type*> types{};
-        for (const auto& param : funcDef.parameters) {
-            auto type = scope.getType(param.type);
-            if (!type) {
-                diagnostics.push_error("No type named " + param.type.name +
-                                           " found",
-                                       param.tokens.identifier.source);
-                return nullptr;
-            }
-            if (type->definition) {
-                llvmTypes.push_back(type->llvm->getPointerTo());
-            } else {
-                llvmTypes.push_back(type->llvm);
-            }
-            types.push_back(type);
+    // TODO: support return types
+    auto* func = llvm::Function::Create(
+        llvm::FunctionType::get(builder.getInt32Ty(), llvm_types, false),
+        llvm::Function::ExternalLinkage, value.name, module);
+
+    auto args = func->arg_begin(); // NOLINT(readability-qualified-auto)
+    auto nested_scope = scope.push_local();
+    for (const auto& param : value.parameters) {
+        auto type = nested_scope.get_type(param.type);
+        auto* value = args++;
+        value->setName(param.name);
+        auto variable = Variable{param.name, type, value};
+        scope.variables[param.name] = std::make_shared<Variable>(variable);
+    }
+
+    if (!value.external) {
+        auto* block =
+            llvm::BasicBlock::Create(module.getContext(), "entry", func);
+        builder.SetInsertPoint(block);
+
+        for (const auto& stmt : value.body) {
+            compile_node(stmt, module, builder, nested_scope, diagnostics);
         }
 
-        // TODO: support return types
-        auto func = llvm::Function::Create(
-            llvm::FunctionType::get(builder.getInt32Ty(), llvmTypes, false),
-            llvm::Function::ExternalLinkage, funcDef.name, module);
+        // TODO: support other return types
+        builder.CreateRet(llvm::ConstantInt::get(builder.getInt32Ty(), 0));
+    }
 
-        auto args = func->arg_begin();
-        auto nestedScope = scope.push_local();
-        for (const auto& param : funcDef.parameters) {
-            auto type = nestedScope.getType(param.type);
-            auto value = args++;
-            value->setName(param.name);
-            auto variable = new Variable{param.name, type, value};
-            scope.variables[param.name] = variable;
+    // TODO: memory management
+    auto function =
+        Function{value.name, types, scope.get_type_by_name("Void"),
+                 new FunctionDefinition{value.name, false, value.parameters,
+                                        value.body, value.tokens},
+                 func};
+    scope.functions[value.name] = std::make_shared<Function>(function);
+    return func;
+}
+
+auto compile_function_call(const FunctionCall& value, llvm::Module& module,
+                           llvm::IRBuilder<>& builder, Scope& scope,
+                           Diagnostics& diagnostics) -> llvm::Value* {
+    auto func = scope.get_function(value.name);
+
+    std::vector<llvm::Value*> args;
+    for (const auto& arg : value.arguments) {
+        auto* const llvm_arg =
+            compile_node(arg, module, builder, scope, diagnostics);
+        if (llvm_arg == nullptr) {
+            // error already reported
+            return nullptr;
+        }
+        args.push_back(llvm_arg);
+    }
+
+    if (!func) {
+        diagnostics.push_error("No function named '" + value.name + "' found.",
+                               value.tokens.identifier.source);
+        return nullptr;
+    }
+
+    if (args.size() != func->parameterTypes.size()) {
+        diagnostics.push_error("Incorrect number of arguments for function '" +
+                                   value.name + "'. Expected " +
+                                   std::to_string(func->parameterTypes.size()) +
+                                   ", got " + std::to_string(args.size()) + ".",
+                               value.tokens.parenClose.source);
+        return nullptr;
+    }
+
+    for (std::size_t i = 0; i < args.size(); i++) {
+        auto* arg = args[i];
+
+        std::string param_name;
+        Source source{};
+        if (func->definition != nullptr) {
+            auto param_def = func->definition->parameters[i];
+            param_name = param_def.name;
+            source = node_source(value.arguments[i]);
+        } else {
+            param_name = "param" + std::to_string(i);
+            source = value.tokens.identifier.source;
         }
 
-        if (!funcDef.external) {
-            auto* block =
-                llvm::BasicBlock::Create(module.getContext(), "entry", func);
-            builder.SetInsertPoint(block);
+        auto param_type = func->parameterTypes[i];
 
-            for (const auto& stmt : funcDef.body) {
-                compileNode(stmt, module, builder, nestedScope, diagnostics);
+        auto actual_type = scope.get_type_by_llvm(arg->getType());
+        if (actual_type != param_type) {
+            diagnostics.push_error(
+                "Incorrect type for parameter '" + param_name + "'. Expected " +
+                    param_type->name + ", got " + actual_type->name + ".",
+                source);
+            return nullptr;
+        }
+    }
+
+    return builder.CreateCall(func->llvm, std::vector<llvm::Value*>{args});
+}
+
+auto compile_member_access(const MemberAccess& value, llvm::Module& module,
+                           llvm::IRBuilder<>& builder, Scope& scope,
+                           Diagnostics& diagnostics) -> llvm::Value* {
+    auto* const base =
+        compile_node(*value.base, module, builder, scope, diagnostics);
+
+    if (value.member->type != NodeType::identifier) {
+        diagnostics.push_error("Member access must be an identifier",
+                               value.tokens.dot.source);
+        return nullptr;
+    }
+
+    const auto base_type = scope.get_type_by_llvm(base->getType());
+    if (!base_type) {
+        diagnostics.push_error("No type found for member access",
+                               value.tokens.dot.source);
+        return nullptr;
+    }
+
+    const auto identifier = std::get<Identifier>(value.member->value);
+
+    int struct_index = 0;
+    {
+        if (base_type->definition == nullptr) {
+            diagnostics.push_error("Type " + base_type->name +
+                                       " is not a struct.",
+                                   identifier.token.source);
+            return nullptr;
+        }
+        int found = -1;
+        int i = 0;
+        for (const auto& member : base_type->definition->members) {
+            if (member.name == identifier.name) {
+                found = i;
+                break;
             }
-
-            // TODO: support other return types
-            builder.CreateRet(llvm::ConstantInt::get(builder.getInt32Ty(), 0));
+            i++;
         }
 
-        // TODO: memory management
-        auto function = new Function{
-            funcDef.name, types, scope._getType("Void"),
-            new FunctionDefinition{funcDef.name, false, funcDef.parameters,
-                                   funcDef.body, funcDef.tokens},
-            func};
-        scope.functions[funcDef.name] = function;
-        return func;
+        if (found == -1) {
+            diagnostics.push_error("No member named '" + identifier.name +
+                                       "' found on type " + base_type->name +
+                                       ".",
+                                   identifier.token.source);
+            return nullptr;
+        }
+        struct_index = found;
+    }
+
+    llvm::Value* member_ptr =
+        builder.CreateStructGEP(base->getType()->getPointerElementType(), base,
+                                struct_index, identifier.name + "_ptr");
+    // TODO: support other types
+    return builder.CreateLoad(builder.getInt8PtrTy(), member_ptr,
+                              identifier.name);
+}
+
+auto compile_node(const Node& node, llvm::Module& module,
+                  llvm::IRBuilder<>& builder, Scope& scope,
+                  Diagnostics& diagnostics) -> llvm::Value* {
+    std::cerr << "Compiling node " << node << '\n';
+    switch (node.type) {
+    case NodeType::function_definition: {
+        return compile_function_definition(
+            std::get<FunctionDefinition>(node.value), module, builder, scope,
+            diagnostics);
+
     } break;
     case NodeType::identifier: {
         auto identifier = std::get<Identifier>(node.value);
-        auto variable = scope.getVariable(identifier.name);
+        auto variable = scope.get_variable(identifier.name);
         if (!variable) {
             diagnostics.push_error("No variable named " + identifier.name +
                                        " found",
@@ -188,128 +321,18 @@ auto compileNode(const Node& node, llvm::Module& module,
         return variable->llvm;
     } break;
     case NodeType::function_call: {
-        auto& funcCall = std::get<FunctionCall>(node.value);
-        auto func = scope.getFunction(funcCall.name);
-
-        std::vector<llvm::Value*> args;
-        for (const auto& arg : funcCall.arguments) {
-            const auto llvm_arg =
-                compileNode(arg, module, builder, scope, diagnostics);
-            if (!llvm_arg) {
-                // error already reported
-                return nullptr;
-            }
-            args.push_back(llvm_arg);
-        }
-
-        if (!func) {
-            diagnostics.push_error("No function named '" + funcCall.name +
-                                       "' found.",
-                                   funcCall.tokens.identifier.source);
-            return nullptr;
-        }
-
-        if (args.size() != func->parameterTypes.size()) {
-            diagnostics.push_error(
-                "Incorrect number of arguments for function '" + funcCall.name +
-                    "'. Expected " +
-                    std::to_string(func->parameterTypes.size()) + ", got " +
-                    std::to_string(args.size()) + ".",
-                funcCall.tokens.parenClose.source);
-            return nullptr;
-        } else {
-            for (std::size_t i = 0; i < args.size(); i++) {
-                auto value = args[i];
-
-                std::string paramName;
-                Source source;
-                if (func->definition) {
-                    auto paramDef = func->definition->parameters[i];
-                    paramName = paramDef.name;
-                    source = node_source(funcCall.arguments[i]);
-                } else {
-                    paramName = "param" + std::to_string(i);
-                    source = funcCall.tokens.identifier.source;
-                }
-
-                auto paramType = func->parameterTypes[i];
-
-                auto actualType = scope.getTypeByLlvm(value->getType());
-                if (actualType != paramType) {
-                    diagnostics.push_error("Incorrect type for parameter '" +
-                                               paramName + "'. Expected " +
-                                               paramType->name + ", got " +
-                                               actualType->name + ".",
-                                           source);
-                    return nullptr;
-                }
-            }
-        }
-
-        return builder.CreateCall(func->llvm, std::vector<llvm::Value*>{args});
+        return compile_function_call(std::get<FunctionCall>(node.value), module,
+                                     builder, scope, diagnostics);
     } break;
     case NodeType::member_access: {
-        auto& value = std::get<MemberAccess>(node.value);
-
-        const auto base =
-            compileNode(*value.base, module, builder, scope, diagnostics);
-
-        if (value.member->type != NodeType::identifier) {
-            diagnostics.push_error("Member access must be an identifier",
-                                   value.tokens.dot.source);
-            return nullptr;
-        }
-
-        const auto baseType = scope.getTypeByLlvm(base->getType());
-        if (!baseType) {
-            diagnostics.push_error("No type found for member access",
-                                   value.tokens.dot.source);
-            return nullptr;
-        }
-
-        const auto identifier = std::get<Identifier>(value.member->value);
-
-        int structIndex;
-        {
-            if (!baseType->definition) {
-                diagnostics.push_error("Type " + baseType->name +
-                                           " is not a struct.",
-                                       identifier.token.source);
-                return nullptr;
-            }
-            int found = -1;
-            int i = 0;
-            for (const auto& member : baseType->definition->members) {
-                if (member.name == identifier.name) {
-                    found = i;
-                    break;
-                }
-                i++;
-            }
-
-            if (found == -1) {
-                diagnostics.push_error("No member named '" + identifier.name +
-                                           "' found on type " + baseType->name +
-                                           ".",
-                                       identifier.token.source);
-                return nullptr;
-            } else {
-                structIndex = found;
-            }
-        }
-
-        llvm::Value* memberPtr = builder.CreateStructGEP(
-            base->getType()->getPointerElementType(), base, structIndex,
-            identifier.name + "_ptr");
-        // TODO: support other types
-        return builder.CreateLoad(builder.getInt8PtrTy(), memberPtr,
-                                  identifier.name);
+        return compile_member_access(std::get<MemberAccess>(node.value), module,
+                                     builder, scope, diagnostics);
     } break;
     case NodeType::struct_definition: {
-        auto& value = std::get<StructDefinition>(node.value);
+        const auto& value = std::get<StructDefinition>(node.value);
         auto llvm_members = std::vector<llvm::Type*>{};
         for (const auto& member : value.members) {
-            auto type = scope.getType(member.type);
+            auto type = scope.get_type(member.type);
             if (!type) {
                 diagnostics.push_error("No type named " + member.type.name +
                                            " found",
@@ -318,46 +341,47 @@ auto compileNode(const Node& node, llvm::Module& module,
             }
             llvm_members.push_back(type->llvm);
         }
-        auto llvm_value = llvm::StructType::create(
+        auto* llvm_value = llvm::StructType::create(
             module.getContext(), llvm_members, value.name, false);
 
-        scope.types[value.name] = new Type{
-            value.name, llvm_value,
-            new StructDefinition{value.name, value.members, value.tokens}};
+        const auto type =
+            Type{value.name, llvm_value,
+                 new StructDefinition{value.name, value.members, value.tokens}};
+        scope.types[value.name] = std::make_shared<Type>(type);
     } break;
     case NodeType::string_literal: {
         auto value = std::get<StringLiteral>(node.value);
-        auto stringType = scope._getType("String");
-        if (!stringType) {
+        auto string_type = scope.get_type_by_name("String");
+        if (!string_type) {
             diagnostics.push_error("No type named String found",
                                    value.token.source);
             return nullptr;
         }
 
-        const auto alloca =
-            builder.CreateAlloca(stringType->llvm, nullptr, "literal");
+        auto* const alloca =
+            builder.CreateAlloca(string_type->llvm, nullptr, "literal");
 
         builder.CreateStore(
             builder.CreateGlobalStringPtr(
                 std::get<StringLiteral>(node.value).value),
-            builder.CreateStructGEP(stringType->llvm, alloca, 0));
+            builder.CreateStructGEP(string_type->llvm, alloca, 0));
 
         return alloca;
     } break;
     case NodeType::integer_literal: {
         auto value = std::get<IntegerLiteral>(node.value);
-        auto type = scope._getType("Int");
+        auto type = scope.get_type_by_name("Int");
         if (!type) {
             diagnostics.push_error("No type named Int found",
                                    value.token.source);
             return nullptr;
         }
 
-        const auto alloca =
+        auto* const alloca =
             builder.CreateAlloca(type->llvm, nullptr, "literal");
 
         builder.CreateStore(
-            llvm::ConstantInt::get(scope._getType("Int64")->llvm,
+            llvm::ConstantInt::get(scope.get_type_by_name("Int64")->llvm,
                                    std::get<IntegerLiteral>(node.value).value,
                                    false),
             builder.CreateStructGEP(type->llvm, alloca, 0));
@@ -365,23 +389,23 @@ auto compileNode(const Node& node, llvm::Module& module,
         return alloca;
     } break;
     case NodeType::variable_definition: {
-        auto& varDef = std::get<VariableDefinition>(node.value);
-        auto* value =
-            compileNode(*varDef.value, module, builder, scope, diagnostics);
+        const auto& value = std::get<VariableDefinition>(node.value);
+        auto* llvm =
+            compile_node(*value.value, module, builder, scope, diagnostics);
         // TODO: get struct type from compile node somehow
         auto variable =
-            new Variable{varDef.name, scope._getType("String"), value};
-        scope.variables[varDef.name] = variable;
+            Variable{value.name, scope.get_type_by_name("String"), llvm};
+        scope.variables[value.name] = std::make_shared<Variable>(variable);
     } break;
     default: {
-        std::cerr << "Unknown node type: " << node.type << std::endl;
+        std::cerr << "Unknown node type: " << node.type << '\n';
     } break;
     }
 
     return nullptr;
 }
 
-auto Compiler::compile(Buffer<std::vector<Node>> ast, Diagnostics& diagnostics)
+auto xlang::compile(Buffer<std::vector<Node>> ast, Diagnostics& diagnostics)
     -> std::string {
     llvm::LLVMContext context;
     llvm::Module module("xlang", context);
@@ -391,20 +415,22 @@ auto Compiler::compile(Buffer<std::vector<Node>> ast, Diagnostics& diagnostics)
 
     // scope.types["String"] =
     //     new Type{"String", builder.getInt8Ty()->getPointerTo()};
-    scope.types["Int64"] = new Type{"Int64", builder.getInt64Ty()};
-    scope.types["Int32"] = new Type{"Int32", builder.getInt32Ty()};
-    scope.types["UInt8"] = new Type{"UInt8", builder.getInt8Ty()};
-    scope.types["Pointer<UInt8>"] =
-        new Type{"Pointer<UInt8>", builder.getInt8Ty()->getPointerTo()};
-    scope.types["Void"] = new Type{"Void", builder.getVoidTy()};
+    scope.types["Int64"] =
+        std::make_shared<Type>("Int64", builder.getInt64Ty());
+    scope.types["Int32"] =
+        std::make_shared<Type>("Int32", builder.getInt32Ty());
+    scope.types["UInt8"] = std::make_shared<Type>("UInt8", builder.getInt8Ty());
+    scope.types["Pointer<UInt8>"] = std::make_shared<Type>(
+        "Pointer<UInt8>", builder.getInt8Ty()->getPointerTo());
+    scope.types["Void"] = std::make_shared<Type>("Void", builder.getVoidTy());
 
     while (!ast.empty()) {
         const auto node = ast.pop();
-        compileNode(node, module, builder, scope, diagnostics);
+        compile_node(node, module, builder, scope, diagnostics);
     }
 
-    std::string moduleStr;
-    llvm::raw_string_ostream ostream(moduleStr);
+    std::string module_str;
+    llvm::raw_string_ostream ostream(module_str);
     module.print(ostream, nullptr);
     return ostream.str();
 }

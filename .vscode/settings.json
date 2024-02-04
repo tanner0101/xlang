@@ -1,13 +1,8 @@
 {
-    "C_Cpp.codeAnalysis.runAutomatically": true,
-    "C_Cpp.codeAnalysis.clangTidy.enabled": true,
-    "C_Cpp.clang_format_style": "{ BasedOnStyle: LLVM, BreakBeforeBraces: Attach, IndentWidth: 4, PointerAlignment: Left }",
-    "C_Cpp.codeAnalysis.clangTidy.checks.enabled": [
-        "modernize-*",
-        "bugprone-*"
+    "clangd.arguments": [
+        "--clang-tidy",
     ],
-    "C_Cpp.errorSquiggles": "enabled",
-    "C_Cpp.loggingLevel": "Debug",
+    "editor.tabSize": 4,
     "files.associations": {
         "any": "cpp",
         "array": "cpp",

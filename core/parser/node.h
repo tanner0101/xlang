@@ -39,18 +39,18 @@ struct TypeIdentifier {
 inline auto operator<<(std::ostream& os, const TypeIdentifier& value)
     -> std::ostream& {
     os << value.name;
-    if (value.genericParameters.size() > 0) {
+    if (!value.genericParameters.empty()) {
         os << "<";
     }
     bool first = true;
-    for (const auto& genericParameter : value.genericParameters) {
+    for (const auto& generic_parameter : value.genericParameters) {
         if (!first) {
             os << ",";
         }
         first = false;
-        os << genericParameter;
+        os << generic_parameter;
     }
-    if (value.genericParameters.size() > 0) {
+    if (!value.genericParameters.empty()) {
         os << ">";
     }
     return os;
@@ -228,17 +228,17 @@ inline auto operator<<(std::ostream& os, Node node) -> std::ostream& {
         os << "(" << std::get<StringLiteral>(node.value).value << ")";
         break;
     case NodeType::variable_definition: {
-        auto variableDefinition = std::get<VariableDefinition>(node.value);
-        os << "(" << variableDefinition.name << "=" << *variableDefinition.value
-           << ")";
+        auto variable_definition = std::get<VariableDefinition>(node.value);
+        os << "(" << variable_definition.name << "="
+           << *variable_definition.value << ")";
     } break;
     case NodeType::struct_definition: {
         auto value = std::get<StructDefinition>(node.value);
         os << "(" << value.name;
-        if (value.members.size() > 0) {
+        if (!value.members.empty()) {
             os << ",";
         }
-        for (auto member : value.members) {
+        for (const auto& member : value.members) {
             os << member.name << ":" << member.type;
         }
         os << ")";
@@ -249,32 +249,34 @@ inline auto operator<<(std::ostream& os, Node node) -> std::ostream& {
         if (value.external) {
             os << ",external";
         }
-        if (value.parameters.size() > 0) {
+        if (!value.parameters.empty()) {
             os << ",";
         }
         auto first = true;
-        for (auto parameter : value.parameters) {
-            if (!first)
+        for (const auto& parameter : value.parameters) {
+            if (!first) {
                 os << ",";
+            }
             first = false;
             os << parameter.name << ":" << parameter.type;
         }
-        if (value.body.size() > 0) {
+        if (!value.body.empty()) {
             os << ",";
         }
         first = true;
-        for (auto body : value.body) {
-            if (!first)
+        for (const auto& body : value.body) {
+            if (!first) {
                 os << ",";
+            }
             first = false;
             os << body;
         }
         os << ")";
     } break;
     case NodeType::function_call: {
-        auto functionCall = std::get<FunctionCall>(node.value);
-        os << "(" << functionCall.name << ",";
-        for (auto argument : functionCall.arguments) {
+        auto function_call = std::get<FunctionCall>(node.value);
+        os << "(" << function_call.name << ",";
+        for (const auto& argument : function_call.arguments) {
             os << argument;
         }
         os << ")";

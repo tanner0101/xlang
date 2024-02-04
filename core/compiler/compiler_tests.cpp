@@ -5,8 +5,6 @@ using namespace xlang;
 using namespace xlang;
 using namespace xlang;
 
-Compiler compiler{};
-
 TEST(CompilerTest, TestCompile) {
     auto diagnostics = Diagnostics();
     auto tokens = std::vector<Token>{Token{TokenType::identifier, Source{}}};
@@ -26,7 +24,7 @@ TEST(CompilerTest, TestCompile) {
                           }}}},
         {std::nullopt, Token(TokenType::function, Source{}),
          Token(TokenType::identifier, "main", Source{})}}}};
-    const auto lli = compiler.compile(ast, diagnostics);
+    const auto lli = compile(ast, diagnostics);
     ASSERT_EQ(lli, R"(; ModuleID = 'xlang'
 source_filename = "xlang"
 

@@ -3,12 +3,11 @@
 #include "core/parser/parser.h"
 #include <boost/asio.hpp>
 #include <boost/json.hpp>
-#include <fstream>
 #include <iostream>
 #include <optional>
 #include <string>
 
-auto serializeResponse(boost::json::object result, int64_t id) -> std::string {
+auto serialize_response(boost::json::object result, int64_t id) -> std::string {
     boost::json::object message;
     message["jsonrpc"] = "2.0";
     if (result.contains("params")) {
@@ -20,7 +19,7 @@ auto serializeResponse(boost::json::object result, int64_t id) -> std::string {
     }
 
     auto json = boost::json::serialize(message);
-    std::cerr << json << std::endl;
+    std::cerr << json << '\n';
     std::stringstream ss;
     ss << "Content-Length: " << json.size() << "\r\n\r\n";
     ss << json;
@@ -33,8 +32,8 @@ struct Request {
     boost::json::object params;
 };
 
-auto parseRequest(std::string const& data) -> std::optional<Request> {
-    std::size_t pos = data.find("{");
+auto parse_request(std::string const& data) -> std::optional<Request> {
+    std::size_t pos = data.find('{');
     if (pos == std::string::npos) {
         return std::nullopt;
     }
@@ -46,7 +45,7 @@ auto parseRequest(std::string const& data) -> std::optional<Request> {
                    .params = json.at("params").as_object()};
 }
 
-auto convertDiagnostics(xlang::Diagnostics diagnostics) -> boost::json::array {
+auto convert_diagnostics(xlang::Diagnostics diagnostics) -> boost::json::array {
     auto result = boost::json::array{};
     for (const auto& diagnostic : diagnostics) {
         auto severity = 0;
@@ -79,23 +78,25 @@ auto convertDiagnostics(xlang::Diagnostics diagnostics) -> boost::json::array {
 }
 
 struct Context {
-    xlang::Parser parser;
-    xlang::Lexer lexer;
-    xlang::Compiler compiler;
     std::unordered_map<std::string, std::string> files;
 };
 
-auto publishDiagnostics(Context ctx, std::string uri, std::string file)
+struct TextDocument {
+    std::string uri;
+    std::string data;
+};
+
+auto publish_diagnostics(const Context& ctx, const TextDocument file)
     -> boost::json::object {
     auto diagnostics = xlang::Diagnostics{};
-    auto tokens = ctx.lexer.lex(file, diagnostics);
-    auto ast = ctx.parser.parse(tokens, diagnostics);
-    ctx.compiler.compile(ast, diagnostics);
+    auto tokens = xlang::lex(file.data, diagnostics);
+    auto ast = xlang::parse(tokens, diagnostics);
+    compile(ast, diagnostics);
     return boost::json::object{
         {"method", "textDocument/publishDiagnostics"},
-        {"params",
-         boost::json::object{
-             {"uri", uri}, {"diagnostics", convertDiagnostics(diagnostics)}}}};
+        {"params", boost::json::object{
+                       {"uri", file.uri},
+                       {"diagnostics", convert_diagnostics(diagnostics)}}}};
 }
 
 enum class SemanticTokenType {
@@ -127,121 +128,123 @@ auto semantic_token_modifiers() -> boost::json::array {
     return boost::json::array{"declaration", "defaultLibrary", "static"};
 };
 
-auto semanticToken(xlang::Token token, std::size_t length,
-                   SemanticTokenType type, SemanticTokenModifier modifier,
-                   boost::json::array& data, xlang::Source& previous) -> void {
-    int lineDelta = token.source.line - previous.line;
-    int columnDelta =
-        lineDelta ? token.source.column : token.source.column - previous.column;
+auto semantic_token(const xlang::Token& token, std::size_t length,
+                    SemanticTokenType type, SemanticTokenModifier modifier,
+                    boost::json::array& data, xlang::Source& previous) -> void {
+    int line_delta = token.source.line - previous.line;
+    int column_delta = line_delta != 0 ? token.source.column
+                                       : token.source.column - previous.column;
 
     previous.line = token.source.line;
     previous.column = token.source.column;
 
-    data.push_back(lineDelta);
-    data.push_back(columnDelta);
+    data.push_back(line_delta);
+    data.push_back(column_delta);
     data.push_back(length);
     data.push_back(static_cast<int>(type));
     data.push_back(static_cast<int>(modifier));
 }
 
-auto semanticType(xlang::TypeIdentifier type, boost::json::array& data,
-                  xlang::Source& previous) -> void {
-    semanticToken(type.tokens.name, type.name.length(), SemanticTokenType::type,
-                  SemanticTokenModifier::none, data, previous);
-    for (const auto& genericParameter : type.genericParameters) {
-        semanticType(genericParameter, data, previous);
+auto semantic_type(const xlang::TypeIdentifier& type, boost::json::array& data,
+                   xlang::Source& previous) -> void {
+    semantic_token(type.tokens.name, type.name.length(),
+                   SemanticTokenType::type, SemanticTokenModifier::none, data,
+                   previous);
+    for (const auto& generic_parameter : type.genericParameters) {
+        semantic_type(generic_parameter, data, previous);
     }
 }
 
-auto semanticNode(xlang::Node node, boost::json::array& data,
-                  xlang::Source& previous) -> void {
+auto semantic_node(xlang::Node node, boost::json::array& data,
+                   xlang::Source& previous) -> void {
     switch (node.type) {
     case xlang::NodeType::variable_definition: {
-        auto vardef = std::get<xlang::VariableDefinition>(node.value);
-        semanticToken(vardef.tokens.keyword, 3, SemanticTokenType::keyword,
-                      SemanticTokenModifier::none, data, previous);
-        semanticToken(
-            vardef.tokens.identifier,
-            std::get<std::string>(vardef.tokens.identifier.value).length(),
+        auto value = std::get<xlang::VariableDefinition>(node.value);
+        semantic_token(value.tokens.keyword, 3, SemanticTokenType::keyword,
+                       SemanticTokenModifier::none, data, previous);
+        semantic_token(
+            value.tokens.identifier,
+            std::get<std::string>(value.tokens.identifier.value).length(),
             SemanticTokenType::variable, SemanticTokenModifier::none, data,
             previous);
-        semanticNode(*vardef.value, data, previous);
+        semantic_node(*value.value, data, previous);
     } break;
     case xlang::NodeType::string_literal: {
-        auto stringLiteral = std::get<xlang::StringLiteral>(node.value);
-        semanticToken(stringLiteral.token, stringLiteral.value.length() + 2,
-                      SemanticTokenType::string, SemanticTokenModifier::none,
-                      data, previous);
+        auto value = std::get<xlang::StringLiteral>(node.value);
+        semantic_token(value.token, value.value.length() + 2,
+                       SemanticTokenType::string, SemanticTokenModifier::none,
+                       data, previous);
     } break;
     case xlang::NodeType::integer_literal: {
-        auto integerLiteral = std::get<xlang::IntegerLiteral>(node.value);
-        semanticToken(
-            integerLiteral.token,
-            std::get<std::string>(integerLiteral.token.value).length(),
-            SemanticTokenType::number, SemanticTokenModifier::none, data,
-            previous);
+        auto value = std::get<xlang::IntegerLiteral>(node.value);
+        semantic_token(value.token,
+                       std::get<std::string>(value.token.value).length(),
+                       SemanticTokenType::number, SemanticTokenModifier::none,
+                       data, previous);
     } break;
     case xlang::NodeType::identifier: {
-        auto identifier = std::get<xlang::Identifier>(node.value);
-        semanticToken(identifier.token, identifier.name.length(),
-                      SemanticTokenType::variable, SemanticTokenModifier::none,
-                      data, previous);
+        auto value = std::get<xlang::Identifier>(node.value);
+        semantic_token(value.token, value.name.length(),
+                       SemanticTokenType::variable, SemanticTokenModifier::none,
+                       data, previous);
     } break;
     case xlang::NodeType::struct_definition: {
         auto value = std::get<xlang::StructDefinition>(node.value);
-        semanticToken(value.tokens.keyword, 6, SemanticTokenType::keyword,
-                      SemanticTokenModifier::none, data, previous);
-        semanticToken(
+        semantic_token(value.tokens.keyword, std::string("struct").length(),
+                       SemanticTokenType::keyword, SemanticTokenModifier::none,
+                       data, previous);
+        semantic_token(
             value.tokens.identifier,
             std::get<std::string>(value.tokens.identifier.value).length(),
             SemanticTokenType::type, SemanticTokenModifier::declaration, data,
             previous);
         for (const auto& member : value.members) {
-            semanticToken(member.tokens.name, member.name.length(),
-                          SemanticTokenType::parameter,
-                          SemanticTokenModifier::none, data, previous);
-            semanticType(member.type, data, previous);
+            semantic_token(member.tokens.name, member.name.length(),
+                           SemanticTokenType::parameter,
+                           SemanticTokenModifier::none, data, previous);
+            semantic_type(member.type, data, previous);
         }
     } break;
     case xlang::NodeType::function_definition: {
         auto value = std::get<xlang::FunctionDefinition>(node.value);
         if (value.tokens.external.has_value()) {
-            semanticToken(value.tokens.external.value(), 6,
-                          SemanticTokenType::keyword,
-                          SemanticTokenModifier::declaration, data, previous);
+            semantic_token(value.tokens.external.value(),
+                           std::string("external").length(),
+                           SemanticTokenType::keyword,
+                           SemanticTokenModifier::declaration, data, previous);
         }
-        semanticToken(value.tokens.keyword, 2, SemanticTokenType::keyword,
-                      SemanticTokenModifier::none, data, previous);
-        semanticToken(
+        semantic_token(value.tokens.keyword, 2, SemanticTokenType::keyword,
+                       SemanticTokenModifier::none, data, previous);
+        semantic_token(
             value.tokens.identifier,
             std::get<std::string>(value.tokens.identifier.value).length(),
             SemanticTokenType::function, SemanticTokenModifier::none, data,
             previous);
         for (const auto& param : value.parameters) {
-            semanticToken(param.tokens.identifier, param.name.length(),
-                          SemanticTokenType::parameter,
-                          SemanticTokenModifier::none, data, previous);
-            semanticType(param.type, data, previous);
+            semantic_token(param.tokens.identifier, param.name.length(),
+                           SemanticTokenType::parameter,
+                           SemanticTokenModifier::none, data, previous);
+            semantic_type(param.type, data, previous);
         }
         for (const auto& body : value.body) {
-            semanticNode(body, data, previous);
+            semantic_node(body, data, previous);
         }
     } break;
     case xlang::NodeType::function_call: {
         auto funcal = std::get<xlang::FunctionCall>(node.value);
-        semanticToken(
+        semantic_token(
             funcal.tokens.identifier,
             std::get<std::string>(funcal.tokens.identifier.value).length(),
             SemanticTokenType::function, SemanticTokenModifier::none, data,
             previous);
         for (const auto& arg : funcal.arguments) {
-            semanticNode(arg, data, previous);
+            semantic_node(arg, data, previous);
         }
     } break;
     case xlang::NodeType::member_access: {
         auto value = std::get<xlang::MemberAccess>(node.value);
-        semanticNode(*value.base, data, previous);
-        semanticNode(*value.member, data, previous);
+        semantic_node(*value.base, data, previous);
+        semantic_node(*value.member, data, previous);
     } break;
     default:
         break;
@@ -263,37 +266,43 @@ auto handle(Request request, Context& ctx)
                            {"tokenTypes", semantic_token_types()},
                            {"tokenModifiers", semantic_token_modifiers()}}},
                       {"full", true}}}}}};
-    } else if (request.method == "textDocument/semanticTokens/full") {
-        auto uri =
+    }
+
+    if (request.method == "textDocument/semanticTokens/full") {
+        const auto* uri =
             request.params.at("textDocument").at("uri").as_string().c_str();
 
         auto data = boost::json::array{};
         auto diagnostics = xlang::Diagnostics{};
-        auto tokens = ctx.lexer.lex(ctx.files[uri], diagnostics);
-        auto ast = ctx.parser.parse(tokens, diagnostics);
+        auto tokens = xlang::lex(ctx.files[uri], diagnostics);
+        auto ast = xlang::parse(tokens, diagnostics);
 
         auto previous = xlang::Source{};
         for (const auto& node : ast) {
-            semanticNode(node, data, previous);
+            semantic_node(node, data, previous);
         }
 
         return boost::json::object{{"data", data}};
-    } else if (request.method == "textDocument/didOpen") {
-        const auto textDocument = request.params.at("textDocument");
-        const auto uri = textDocument.at("uri").as_string().c_str();
-        const auto file = textDocument.at("text").as_string().c_str();
+    }
+
+    if (request.method == "textDocument/didOpen") {
+        const auto text_document = request.params.at("textDocument");
+        const auto* const uri = text_document.at("uri").as_string().c_str();
+        const auto* const file = text_document.at("text").as_string().c_str();
         ctx.files[uri] = file;
-        return publishDiagnostics(ctx, uri, file);
-    } else if (request.method == "textDocument/didChange") {
-        const auto textDocument = request.params.at("textDocument");
-        const auto uri = textDocument.at("uri").as_string().c_str();
+        return publish_diagnostics(ctx, TextDocument{uri, file});
+    }
+
+    if (request.method == "textDocument/didChange") {
+        const auto text_document = request.params.at("textDocument");
+        const auto* const uri = text_document.at("uri").as_string().c_str();
 
         if (request.params.contains("contentChanges")) {
-            const auto contentChanges = request.params.at("contentChanges");
-            const auto file =
-                contentChanges.at(0).at("text").as_string().c_str();
+            const auto content_changes = request.params.at("contentChanges");
+            const auto* const file =
+                content_changes.at(0).at("text").as_string().c_str();
             ctx.files[uri] = file;
-            return publishDiagnostics(ctx, uri, file);
+            return publish_diagnostics(ctx, TextDocument{uri, file});
         }
     }
 
@@ -310,54 +319,58 @@ auto main() -> int {
         boost::asio::ip::tcp::socket socket(io_context);
         boost::asio::connect(socket, endpoints);
 
-        auto bytes = std::array<char, 2 << 12>{};
+        constexpr auto buffer_size = 2 << 12;
+        auto bytes = std::array<char, buffer_size>{};
         auto buffer = std::string{};
         while (true) {
             size_t len = socket.read_some(boost::asio::buffer(bytes));
-            if (!len)
+            if (len == 0) {
                 continue;
+            }
+
             buffer += std::string(bytes.data(), len);
             size_t pos = 0;
             while ((pos = buffer.find("\r\n\r\n")) != std::string::npos) {
                 // Extract and parse the Content-Length header
                 static const std::string header = "Content-Length: ";
-                size_t contentLengthPos = buffer.find(header);
-                if (contentLengthPos == std::string::npos) {
+                size_t content_length_pos = buffer.find(header);
+                if (content_length_pos == std::string::npos) {
                     break;
                 }
-                size_t start = contentLengthPos + header.size();
-                int contentLength =
+                size_t start = content_length_pos + header.size();
+                int content_length =
                     std::stoi(buffer.substr(start, pos - start));
 
                 // Check if the complete message is in the buffer
-                if (buffer.size() < pos + 4 + contentLength) {
+                if (buffer.size() < pos + 4 + content_length) {
                     break; // Wait for more data
                 }
 
-                const auto requestString =
-                    std::string(buffer.substr(pos + 4, contentLength));
-                std::cerr << requestString << std::endl;
-                const auto requestOpt = parseRequest(requestString);
-                if (!requestOpt.has_value())
+                const auto request_string =
+                    std::string(buffer.substr(pos + 4, content_length));
+                std::cerr << request_string << '\n';
+                const auto request_opt = parse_request(request_string);
+                if (!request_opt.has_value()) {
                     continue;
+                }
 
-                const auto request = requestOpt.value();
+                const auto& request = request_opt.value();
                 const auto response = handle(request, ctx);
 
                 if (response.has_value()) {
-                    const auto responseString =
-                        serializeResponse(response.value(), request.id);
+                    const auto response_string =
+                        serialize_response(response.value(), request.id);
                     boost::asio::write(socket,
-                                       boost::asio::buffer(responseString));
+                                       boost::asio::buffer(response_string));
                 }
 
                 // Remove the processed message from the buffer
-                buffer.erase(0, pos + 4 + contentLength);
+                buffer.erase(0, pos + 4 + content_length);
             }
         }
 
     } catch (std::exception& e) {
-        std::cerr << e.what() << std::endl;
+        std::cerr << e.what() << '\n';
     }
 
     return 0;

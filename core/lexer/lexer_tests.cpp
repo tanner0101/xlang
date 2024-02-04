@@ -3,15 +3,13 @@
 
 using namespace xlang;
 
-Lexer lexer{};
-
 TEST(LexerTest, TestTokenization) {
     auto diagnostics = Diagnostics{};
-    const auto parsed = lexer.lex(R"(fn main() {
+    const auto parsed = lex(R"(fn main() {
     var foo = "bar"
     print("Hello, world!")
 })",
-                                  diagnostics);
+                            diagnostics);
 
     const std::vector<Token> expected{
         Token{TokenType::function, Source{0, 0}},

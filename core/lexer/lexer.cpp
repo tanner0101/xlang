@@ -1,9 +1,10 @@
 #include "lexer.h"
-#include <cassert>
 
 using namespace xlang;
 
-auto Lexer::lex(Buffer<std::string> input, Diagnostics& diagnostics)
+ENUM_CLASS(LexerState, none, identifier, string_literal, integer_literal);
+
+auto xlang::lex(Buffer<std::string> input, Diagnostics& diagnostics)
     -> std::vector<Token> {
     std::vector<Token> tokens{};
 
@@ -13,6 +14,8 @@ auto Lexer::lex(Buffer<std::string> input, Diagnostics& diagnostics)
         .line = 0,
         .column = 0,
     };
+
+    LexerState state = LexerState::none;
 
     while (!input.empty()) {
         switch (state) {
@@ -104,7 +107,7 @@ auto Lexer::lex(Buffer<std::string> input, Diagnostics& diagnostics)
             }
             break;
         case LexerState::identifier:
-            if (std::isalnum(input.peek())) {
+            if (std::isalnum(input.peek()) != 0) {
                 identifier.push_back(input.pop());
             } else {
                 if (identifier == "fn") {
@@ -149,7 +152,7 @@ auto Lexer::lex(Buffer<std::string> input, Diagnostics& diagnostics)
             }
         } break;
         default:
-            std::cerr << "Unknown lexer state: " << state << std::endl;
+            std::cerr << "Unknown lexer state: " << state << '\n';
             break;
         };
     }

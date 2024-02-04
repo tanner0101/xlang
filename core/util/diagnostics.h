@@ -17,16 +17,17 @@ struct Diagnostic {
 
 class Diagnostics {
   public:
-    inline auto push_error(std::string message, Source source) -> void {
-        std::cerr << message << std::endl;
+    inline auto push_error(const std::string& message, Source source) -> void {
+        std::cerr << message << '\n';
         diagnostics.push_back({DiagnosticType::error, message, source});
     }
 
-    inline auto push_warning(std::string message, Source source) -> void {
+    inline auto push_warning(const std::string& message, Source source)
+        -> void {
         diagnostics.push_back({DiagnosticType::warning, message, source});
     }
 
-    inline auto push_note(std::string message, Source source) -> void {
+    inline auto push_note(const std::string& message, Source source) -> void {
         diagnostics.push_back({DiagnosticType::note, message, source});
     }
 

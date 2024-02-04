@@ -4,8 +4,6 @@
 using namespace xlang;
 using namespace xlang;
 
-Parser parser{};
-
 TEST(ParserTest, TestParsing) {
     auto source = Source{};
     auto diagnostics = Diagnostics{};
@@ -20,7 +18,7 @@ TEST(ParserTest, TestParsing) {
         Token{TokenType::string_literal, "Hello, world!", source},
         Token{TokenType::paren_close, source},
         Token{TokenType::curly_close, source}};
-    auto ast = parser.parse(tokens, diagnostics);
+    auto ast = parse(tokens, diagnostics);
     auto expected = std::vector<Node>{{FunctionDefinition{
         "main",
         false,

@@ -1,1 +1,1 @@
-build -c dbg --cxxopt=-std=c++23
+build -c dbg --cxxopt=-std=c++23 --repo_env=CC=clang-17
