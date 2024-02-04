@@ -71,26 +71,12 @@ auto parse_identifier_or_function_call(Token previousToken,
 
     auto name = std::get<std::string>(identifier.value().value);
 
-    std::shared_ptr<Identifier> nested = nullptr;
     auto next = tokens.safe_peek();
-    if (next.has_value()) {
-        if (next.value().type == TokenType::paren_open) {
-            return parse_function_call(identifier.value(), tokens, diagnostics);
-        } else if (next.value().type == TokenType::dot) {
-            auto maybeNested = parse_identifier_or_function_call(
-                tokens.pop(), tokens, diagnostics);
-            if (!maybeNested.has_value() ||
-                maybeNested.value().type != NodeType::identifier) {
-                diagnostics.push_error("Expected nested identifier",
-                                       identifier.value().source);
-                return std::nullopt;
-            }
-            nested = std::make_shared<Identifier>(
-                std::get<Identifier>(maybeNested.value().value));
-        }
+    if (next.has_value() && next.value().type == TokenType::paren_open) {
+        return parse_function_call(identifier.value(), tokens, diagnostics);
     }
 
-    return Node{Identifier{name, nested, {identifier.value()}}};
+    return Node{Identifier{name, {identifier.value()}}};
 }
 
 auto parse_type_identifier(Token previousToken,
@@ -198,9 +184,10 @@ auto parse_struct_definition(Token keyword, Buffer<std::vector<Token>>& tokens,
 
     auto name = std::get<std::string>(identifier.value().value);
 
-    auto curlyOpen =
-        require_next_token(TokenType::curly_open, "Expected open curly",
-                           identifier.value(), tokens, diagnostics);
+    auto curlyOpen = require_next_token(
+        TokenType::curly_open,
+        "Expected open curly while parsing struct definition",
+        identifier.value(), tokens, diagnostics);
     if (!curlyOpen.has_value())
         return std::nullopt;
 
@@ -291,7 +278,8 @@ auto parse_function_definition(Token keyword,
 
     auto body = std::vector<Node>{};
     if (!externalKeyword.has_value()) {
-        require_next_token(TokenType::curly_open, "Expected open curly",
+        require_next_token(TokenType::curly_open,
+                           "Expected open curly parsing function definition",
                            identifier.value(), tokens, diagnostics);
 
         while (true) {
@@ -309,7 +297,7 @@ auto parse_function_definition(Token keyword,
 
             auto expr = parse_expression(tokens, diagnostics);
             if (!expr.has_value()) {
-                tokens.pop();
+                tokens.safe_pop();
                 continue;
             }
             body.push_back(expr.value());
@@ -356,30 +344,63 @@ auto parse_variable_definition(Buffer<std::vector<Token>>& tokens,
 
 auto parse_expression(Buffer<std::vector<Token>>& tokens,
                       Diagnostics& diagnostics) -> std::optional<Node> {
+    std::cerr << "Parsing expression " << tokens.peek() << std::endl;
+    std::optional<Node> value;
     switch (tokens.peek().type) {
-    case TokenType::identifier:
-        return parse_identifier_or_function_call(tokens.peek(), tokens,
-                                                 diagnostics);
-    case TokenType::structure:
-        return parse_struct_definition(tokens.pop(), tokens, diagnostics);
+    case TokenType::identifier: {
+        value = parse_identifier_or_function_call(tokens.peek(), tokens,
+                                                  diagnostics);
+    } break;
+    case TokenType::structure: {
+        value = parse_struct_definition(tokens.pop(), tokens, diagnostics);
+    } break;
     case TokenType::function:
-    case TokenType::external:
-        return parse_function_definition(tokens.pop(), tokens, diagnostics);
-    case TokenType::variable:
-        return parse_variable_definition(tokens, diagnostics, tokens.pop());
+    case TokenType::external: {
+        value = parse_function_definition(tokens.pop(), tokens, diagnostics);
+    } break;
+    case TokenType::variable: {
+        value = parse_variable_definition(tokens, diagnostics, tokens.pop());
+    } break;
     case TokenType::string_literal: {
         auto token = tokens.pop();
-        return Node{StringLiteral{std::get<std::string>(token.value), {token}}};
+        value = std::make_optional(
+            Node{StringLiteral{std::get<std::string>(token.value), {token}}});
     } break;
     case TokenType::integer_literal: {
         auto token = tokens.pop();
-        return Node{IntegerLiteral{stoull(std::get<std::string>(token.value)),
-                                   {token}}};
+        value = std::make_optional(Node{IntegerLiteral{
+            stoull(std::get<std::string>(token.value)), {token}}});
     } break;
-    default:
+    default: {
         std::cerr << "Unexpected token: " << tokens.peek().type << std::endl;
         return std::nullopt;
+    } break;
     }
+
+    if (!value.has_value()) {
+        return std::nullopt;
+    }
+
+    if (tokens.safe_peek().has_value() &&
+        tokens.safe_peek().value().type == TokenType::dot) {
+        const auto dotToken = tokens.pop();
+        const auto chainedExpression = parse_expression(tokens, diagnostics);
+
+        if (!chainedExpression.has_value()) {
+            diagnostics.push_error("Expected chained expression",
+                                   dotToken.source);
+            return std::nullopt;
+        }
+
+        value =
+            Node{MemberAccess{std::make_shared<Node>(value.value()),
+                              std::make_shared<Node>(chainedExpression.value()),
+                              {dotToken}}};
+    }
+
+    std::cerr << "Parsed expression " << value.value() << std::endl;
+
+    return value;
 }
 
 auto Parser::parse(Buffer<std::vector<Token>> tokens, Diagnostics& diagnostics)
@@ -390,7 +411,7 @@ auto Parser::parse(Buffer<std::vector<Token>> tokens, Diagnostics& diagnostics)
         if (node.has_value()) {
             expressions.push_back(node.value());
         } else {
-            tokens.pop();
+            tokens.safe_pop();
         }
     }
     return expressions;

@@ -153,16 +153,6 @@ auto semanticType(xlang::TypeIdentifier type, boost::json::array& data,
     }
 }
 
-auto semanticIdentifier(xlang::Identifier identifier, boost::json::array& data,
-                        xlang::Source& previous) -> void {
-    semanticToken(identifier.token, identifier.name.length(),
-                  SemanticTokenType::variable, SemanticTokenModifier::none,
-                  data, previous);
-    if (identifier.next) {
-        semanticIdentifier(*identifier.next, data, previous);
-    }
-}
-
 auto semanticNode(xlang::Node node, boost::json::array& data,
                   xlang::Source& previous) -> void {
     switch (node.type) {
@@ -193,7 +183,9 @@ auto semanticNode(xlang::Node node, boost::json::array& data,
     } break;
     case xlang::NodeType::identifier: {
         auto identifier = std::get<xlang::Identifier>(node.value);
-        semanticIdentifier(identifier, data, previous);
+        semanticToken(identifier.token, identifier.name.length(),
+                      SemanticTokenType::variable, SemanticTokenModifier::none,
+                      data, previous);
     } break;
     case xlang::NodeType::struct_definition: {
         auto value = std::get<xlang::StructDefinition>(node.value);
@@ -245,6 +237,11 @@ auto semanticNode(xlang::Node node, boost::json::array& data,
         for (const auto& arg : funcal.arguments) {
             semanticNode(arg, data, previous);
         }
+    } break;
+    case xlang::NodeType::member_access: {
+        auto value = std::get<xlang::MemberAccess>(node.value);
+        semanticNode(*value.base, data, previous);
+        semanticNode(*value.member, data, previous);
     } break;
     default:
         break;

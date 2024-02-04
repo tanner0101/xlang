@@ -95,7 +95,12 @@ struct Scope {
             return getTypeByLlvm(llvm->getPointerElementType());
         }
 
-        return _getType("Void");
+        for (const auto& type : types) {
+            std::cerr << type.first << std::endl;
+            type.second->llvm->dump();
+        }
+        llvm->dump();
+        return nullptr;
     }
 
     auto push_local() -> Scope { return Scope{{}, {}, {}, this}; }
@@ -104,6 +109,7 @@ struct Scope {
 auto compileNode(const Node& node, llvm::Module& module,
                  llvm::IRBuilder<>& builder, Scope& scope,
                  Diagnostics& diagnostics) -> llvm::Value* {
+    std::cerr << "Compiling node " << node << std::endl;
     switch (node.type) {
     case NodeType::function_definition: {
         auto& funcDef = std::get<FunctionDefinition>(node.value);
@@ -179,43 +185,7 @@ auto compileNode(const Node& node, llvm::Module& module,
                                    identifier.token.source);
             return nullptr;
         }
-        if (identifier.next) {
-            if (!variable->type->definition) {
-                diagnostics.push_error("Cannot access member of non-struct " +
-                                           variable->type->name,
-                                       identifier.token.source);
-                return nullptr;
-            }
-
-            int found = -1;
-            int i = 0;
-            for (const auto& member : variable->type->definition->members) {
-                if (member.name == identifier.next->name) {
-                    found = i;
-                    break;
-                }
-                i++;
-            }
-
-            if (found == -1) {
-                diagnostics.push_error(
-                    "No member named '" + identifier.next->name +
-                        "' found on type " + variable->type->name + ".",
-                    identifier.next->token.source);
-                return nullptr;
-            }
-
-            // TODO: support deeper nesting
-            // TODO: support actually looking up the member
-            llvm::Value* memberPtr =
-                builder.CreateStructGEP(variable->type->llvm, variable->llvm,
-                                        found, identifier.next->name + "_ptr");
-            // TODO: support other types
-            return builder.CreateLoad(builder.getInt8PtrTy(), memberPtr,
-                                      identifier.next->name);
-        } else {
-            return variable->llvm;
-        }
+        return variable->llvm;
     } break;
     case NodeType::function_call: {
         auto& funcCall = std::get<FunctionCall>(node.value);
@@ -278,6 +248,63 @@ auto compileNode(const Node& node, llvm::Module& module,
 
         return builder.CreateCall(func->llvm, std::vector<llvm::Value*>{args});
     } break;
+    case NodeType::member_access: {
+        auto& value = std::get<MemberAccess>(node.value);
+
+        const auto base =
+            compileNode(*value.base, module, builder, scope, diagnostics);
+
+        if (value.member->type != NodeType::identifier) {
+            diagnostics.push_error("Member access must be an identifier",
+                                   value.tokens.dot.source);
+            return nullptr;
+        }
+
+        const auto baseType = scope.getTypeByLlvm(base->getType());
+        if (!baseType) {
+            diagnostics.push_error("No type found for member access",
+                                   value.tokens.dot.source);
+            return nullptr;
+        }
+
+        const auto identifier = std::get<Identifier>(value.member->value);
+
+        int structIndex;
+        {
+            if (!baseType->definition) {
+                diagnostics.push_error("Type " + baseType->name +
+                                           " is not a struct.",
+                                       identifier.token.source);
+                return nullptr;
+            }
+            int found = -1;
+            int i = 0;
+            for (const auto& member : baseType->definition->members) {
+                if (member.name == identifier.name) {
+                    found = i;
+                    break;
+                }
+                i++;
+            }
+
+            if (found == -1) {
+                diagnostics.push_error("No member named '" + identifier.name +
+                                           "' found on type " + baseType->name +
+                                           ".",
+                                       identifier.token.source);
+                return nullptr;
+            } else {
+                structIndex = found;
+            }
+        }
+
+        llvm::Value* memberPtr = builder.CreateStructGEP(
+            base->getType()->getPointerElementType(), base, structIndex,
+            identifier.name + "_ptr");
+        // TODO: support other types
+        return builder.CreateLoad(builder.getInt8PtrTy(), memberPtr,
+                                  identifier.name);
+    } break;
     case NodeType::struct_definition: {
         auto& value = std::get<StructDefinition>(node.value);
         auto llvm_members = std::vector<llvm::Type*>{};
@@ -318,9 +345,24 @@ auto compileNode(const Node& node, llvm::Module& module,
         return alloca;
     } break;
     case NodeType::integer_literal: {
-        return llvm::ConstantInt::get(
-            scope._getType("Int")->llvm,
-            std::get<IntegerLiteral>(node.value).value, false);
+        auto value = std::get<IntegerLiteral>(node.value);
+        auto type = scope._getType("Int");
+        if (!type) {
+            diagnostics.push_error("No type named Int found",
+                                   value.token.source);
+            return nullptr;
+        }
+
+        const auto alloca =
+            builder.CreateAlloca(type->llvm, nullptr, "literal");
+
+        builder.CreateStore(
+            llvm::ConstantInt::get(scope._getType("Int64")->llvm,
+                                   std::get<IntegerLiteral>(node.value).value,
+                                   false),
+            builder.CreateStructGEP(type->llvm, alloca, 0));
+
+        return alloca;
     } break;
     case NodeType::variable_definition: {
         auto& varDef = std::get<VariableDefinition>(node.value);
@@ -349,7 +391,7 @@ auto Compiler::compile(Buffer<std::vector<Node>> ast, Diagnostics& diagnostics)
 
     // scope.types["String"] =
     //     new Type{"String", builder.getInt8Ty()->getPointerTo()};
-    scope.types["Int"] = new Type{"Int", builder.getInt64Ty()};
+    scope.types["Int64"] = new Type{"Int64", builder.getInt64Ty()};
     scope.types["Int32"] = new Type{"Int32", builder.getInt32Ty()};
     scope.types["UInt8"] = new Type{"UInt8", builder.getInt8Ty()};
     scope.types["Pointer<UInt8>"] =

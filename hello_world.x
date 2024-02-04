@@ -1,3 +1,7 @@
+struct Int {
+    raw: Int64
+}
+
 struct String {
     raw: Pointer<UInt8>
 }
@@ -22,8 +26,8 @@ fn greet(name: String) {
 fn main() {
     var name = "world"
     greet(name)
-    puts("".raw)
+    printf("raw".raw)
     greet("tanner")
-    greet(42)
+    greet(42.test)
     greet()
 }

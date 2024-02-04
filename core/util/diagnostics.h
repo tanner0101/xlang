@@ -18,6 +18,7 @@ struct Diagnostic {
 class Diagnostics {
   public:
     inline auto push_error(std::string message, Source source) -> void {
+        std::cerr << message << std::endl;
         diagnostics.push_back({DiagnosticType::error, message, source});
     }
 

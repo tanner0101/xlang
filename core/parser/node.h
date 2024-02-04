@@ -13,7 +13,8 @@
 namespace xlang {
 
 ENUM_CLASS(NodeType, identifier, variable_definition, function_definition,
-           function_call, string_literal, integer_literal, struct_definition);
+           function_call, member_access, string_literal, integer_literal,
+           struct_definition);
 
 struct Node;
 
@@ -102,6 +103,19 @@ struct FunctionCall {
     auto operator==(const FunctionCall& other) const -> bool = default;
 };
 
+struct MemberAccess {
+    std::shared_ptr<Node> base;
+    std::shared_ptr<Node> member;
+
+    struct Tokens {
+        Token dot;
+        auto operator==(const Tokens& other) const -> bool = default;
+    };
+    Tokens tokens;
+
+    auto operator==(const MemberAccess& other) const -> bool = default;
+};
+
 struct FunctionDefinition {
     std::string name;
     bool external;
@@ -151,7 +165,6 @@ struct VariableDefinition {
 
 struct Identifier {
     std::string name;
-    std::shared_ptr<Identifier> next;
     Token token;
     auto operator==(const Identifier& other) const -> bool = default;
 };
@@ -168,9 +181,9 @@ struct IntegerLiteral {
     auto operator==(const IntegerLiteral& other) const -> bool = default;
 };
 
-using NodeValue =
-    std::variant<StringLiteral, IntegerLiteral, Identifier, FunctionDefinition,
-                 FunctionCall, VariableDefinition, StructDefinition>;
+using NodeValue = std::variant<StringLiteral, IntegerLiteral, Identifier,
+                               FunctionDefinition, FunctionCall, MemberAccess,
+                               VariableDefinition, StructDefinition>;
 
 struct Node {
     NodeType type;
@@ -179,6 +192,7 @@ struct Node {
     Node(NodeType type, NodeValue value)
         : type{type}, value{std::move(value)} {}
     Node(FunctionCall value) : Node(NodeType::function_call, value) {}
+    Node(MemberAccess value) : Node(NodeType::member_access, value) {}
     Node(FunctionDefinition value)
         : Node(NodeType::function_definition, value) {}
     Node(VariableDefinition value)
@@ -264,6 +278,10 @@ inline auto operator<<(std::ostream& os, Node node) -> std::ostream& {
             os << argument;
         }
         os << ")";
+    } break;
+    case NodeType::member_access: {
+        auto value = std::get<MemberAccess>(node.value);
+        os << "(" << *value.base << " > " << *value.member << ")";
     } break;
     default:
         break;
