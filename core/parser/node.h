@@ -213,6 +213,8 @@ inline auto node_source(Node node) -> Source {
         return std::get<IntegerLiteral>(node.value).token.source;
     case NodeType::string_literal:
         return std::get<StringLiteral>(node.value).token.source;
+    case NodeType::member_access:
+        return node_source(*std::get<MemberAccess>(node.value).member);
     default:
         return Source{};
     }

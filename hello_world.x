@@ -15,6 +15,7 @@ fn print(string: String) {
 
 struct Planet {
     name: String
+    moons: Int
 }
 
 fn greet(name: String) {
@@ -23,14 +24,10 @@ fn greet(name: String) {
     print("!")
 }
 
-struct Planet {
-    name: String
-}
-
 fn main() {
-    var earth = Planet("Earth")
+    var earth = Planet("Earth", 1)
     print(erth.name)
-    var mars = Planet("Mars")
+    var mars = Planet("Mars", 2)
     greet(mars.name)
 }
 

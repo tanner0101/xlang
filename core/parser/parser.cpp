@@ -10,7 +10,7 @@ auto require_next_token(TokenType type, const std::string& error,
                         const Token& previousToken,
                         Buffer<std::vector<Token>>& tokens,
                         Diagnostics& diagnostics) -> std::optional<Token> {
-    auto token = tokens.safe_pop();
+    auto token = tokens.safe_peek();
     if (!token.has_value() || token.value().type != type) {
 
         diagnostics.push_error(error, token.has_value() ? token.value().source
@@ -18,7 +18,8 @@ auto require_next_token(TokenType type, const std::string& error,
 
         return std::nullopt;
     }
-    return token;
+
+    return tokens.pop();
 }
 
 auto parse_function_call(const Token& identifier,
@@ -41,6 +42,10 @@ auto parse_function_call(const Token& identifier,
             diagnostics.push_error("Expected function arguments",
                                    paren_open.value().source);
             return std::nullopt;
+        }
+
+        if (token.value().type == TokenType::comma) {
+            paren_close = tokens.safe_pop();
         }
 
         if (token.value().type == TokenType::paren_close) {
@@ -227,7 +232,6 @@ auto parse_struct_definition(Token keyword, Buffer<std::vector<Token>>& tokens,
 
         auto member = parse_struct_member(token.value(), tokens, diagnostics);
         if (!member.has_value()) {
-            tokens.pop();
             continue;
         }
         members.push_back(member.value());

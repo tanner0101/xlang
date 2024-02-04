@@ -412,6 +412,49 @@ auto compile_member_access(const MemberAccess& value, llvm::Module& module,
     return member_ptr;
 }
 
+auto compile_struct_definition(const StructDefinition& value,
+                               llvm::Module& module, llvm::IRBuilder<>& builder,
+                               Scope& scope, Diagnostics& diagnostics)
+    -> llvm::Value* {
+    if (scope.types.find(value.name) != scope.types.end()) {
+        diagnostics.push_error("Type '" + value.name + "' is already defined.",
+                               value.tokens.identifier.source);
+        return nullptr;
+    }
+
+    auto llvm_members = std::vector<llvm::Type*>{};
+    for (const auto& member : value.members) {
+        auto type = scope.get_type(member.type);
+        if (!type) {
+            diagnostics.push_error("No type named " + member.type.name +
+                                       " found",
+                                   member.tokens.name.source);
+            return nullptr;
+        }
+        llvm_members.push_back(type->llvm);
+    }
+    auto* llvm_value = llvm::StructType::create(
+        module.getContext(), llvm_members, value.name, false);
+
+    const auto type =
+        Type{value.name, llvm_value, Type::Semantic::reference,
+             new StructDefinition{value.name, value.members, value.tokens}};
+    scope.types[value.name] = std::make_shared<Type>(type);
+    return nullptr;
+}
+
+auto safe_name(const std::string& input) -> std::string {
+    std::string safe_name;
+    for (char c : input) {
+        if (std::isalnum(c) != 0 || c == '_') {
+            safe_name += c;
+        } else if (std::isspace(c) != 0) {
+            safe_name += '_';
+        }
+    }
+    return safe_name;
+}
+
 auto compile_node(const Node& node, llvm::Module& module,
                   llvm::IRBuilder<>& builder, Scope& scope,
                   Diagnostics& diagnostics) -> llvm::Value* {
@@ -444,25 +487,8 @@ auto compile_node(const Node& node, llvm::Module& module,
                                      builder, scope, diagnostics);
     } break;
     case NodeType::struct_definition: {
-        const auto& value = std::get<StructDefinition>(node.value);
-        auto llvm_members = std::vector<llvm::Type*>{};
-        for (const auto& member : value.members) {
-            auto type = scope.get_type(member.type);
-            if (!type) {
-                diagnostics.push_error("No type named " + member.type.name +
-                                           " found",
-                                       member.tokens.name.source);
-                return nullptr;
-            }
-            llvm_members.push_back(type->llvm);
-        }
-        auto* llvm_value = llvm::StructType::create(
-            module.getContext(), llvm_members, value.name, false);
-
-        const auto type =
-            Type{value.name, llvm_value, Type::Semantic::reference,
-                 new StructDefinition{value.name, value.members, value.tokens}};
-        scope.types[value.name] = std::make_shared<Type>(type);
+        return compile_struct_definition(std::get<StructDefinition>(node.value),
+                                         module, builder, scope, diagnostics);
     } break;
     case NodeType::string_literal: {
         auto value = std::get<StringLiteral>(node.value);
@@ -474,11 +500,11 @@ auto compile_node(const Node& node, llvm::Module& module,
         }
 
         auto* const alloca =
-            builder.CreateAlloca(string_type->llvm, nullptr, "literal");
+            builder.CreateAlloca(string_type->llvm, nullptr,
+                                 "string_literal_" + safe_name(value.value));
 
         builder.CreateStore(
-            builder.CreateGlobalStringPtr(
-                std::get<StringLiteral>(node.value).value),
+            builder.CreateGlobalStringPtr(value.value),
             builder.CreateStructGEP(string_type->llvm, alloca, 0));
 
         return alloca;
@@ -492,8 +518,8 @@ auto compile_node(const Node& node, llvm::Module& module,
             return nullptr;
         }
 
-        auto* const alloca =
-            builder.CreateAlloca(type->llvm, nullptr, "literal");
+        auto* const alloca = builder.CreateAlloca(
+            type->llvm, nullptr, "int_literal_" + std::to_string(value.value));
 
         builder.CreateStore(
             llvm::ConstantInt::get(scope.get_type_by_name("Int64")->llvm,
