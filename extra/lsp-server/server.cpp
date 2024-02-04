@@ -209,7 +209,7 @@ auto semantic_node(xlang::Node node, boost::json::array& data,
         auto value = std::get<xlang::FunctionDefinition>(node.value);
         if (value.tokens.external.has_value()) {
             semantic_token(value.tokens.external.value(),
-                           std::string("external").length(),
+                           std::string("extern").length(),
                            SemanticTokenType::keyword,
                            SemanticTokenModifier::declaration, data, previous);
         }

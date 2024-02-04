@@ -4,6 +4,7 @@ using namespace xlang;
 
 ENUM_CLASS(LexerState, none, identifier, string_literal, integer_literal);
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 auto xlang::lex(Buffer<std::string> input, Diagnostics& diagnostics)
     -> std::vector<Token> {
     std::vector<Token> tokens{};
@@ -89,9 +90,9 @@ auto xlang::lex(Buffer<std::string> input, Diagnostics& diagnostics)
                 diagnostics.push_error("Tabs are not allowed", source);
                 break;
             default: {
-                if (std::isalpha(input.peek())) {
+                if (std::isalpha(input.peek()) != 0) {
                     state = LexerState::identifier;
-                } else if (std::isdigit(input.peek())) {
+                } else if (std::isdigit(input.peek()) != 0) {
                     state = LexerState::integer_literal;
                 } else {
                     const auto unknown = input.pop();
@@ -141,7 +142,7 @@ auto xlang::lex(Buffer<std::string> input, Diagnostics& diagnostics)
             }
             break;
         case LexerState::integer_literal: {
-            if (std::isdigit(input.peek())) {
+            if (std::isdigit(input.peek()) != 0) {
                 identifier.push_back(input.pop());
             } else {
                 state = LexerState::none;

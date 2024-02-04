@@ -23,11 +23,14 @@ fn greet(name: String) {
     print("!")
 }
 
-fn main() {
-    var name = "world"
-    greet(name)
-    printf("raw".raw)
-    greet("tanner")
-    greet(42.test)
-    greet()
+struct Planet {
+    name: String
 }
+
+fn main() {
+    var earth = Planet("Earth")
+    print(erth.name)
+    var mars = Planet("Mars")
+    greet(mars.name)
+}
+
