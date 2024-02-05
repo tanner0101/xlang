@@ -14,9 +14,13 @@ auto require_next_token(TokenType type, const std::string& error,
                         Diagnostics& diagnostics) -> std::optional<Token> {
     auto token = tokens.safe_peek();
     if (!token.has_value() || token.value().type != type) {
+        const auto description = token.has_value()
+                                     ? TokenType_to_string(token.value().type)
+                                     : "nothing";
 
-        diagnostics.push_error(error, token.has_value() ? token.value().source
-                                                        : previousToken.source);
+        diagnostics.push_error(error + ", got " + description,
+                               token.has_value() ? token.value().source
+                                                 : previousToken.source);
 
         return std::nullopt;
     }
@@ -288,6 +292,8 @@ auto parse_function_definition(Token keyword,
         require_next_token(TokenType::paren_open, "Expected open paren",
                            identifier.value(), tokens, diagnostics);
     auto parameters = std::vector<FunctionDefinition::Parameter>{};
+
+    bool variadic = false;
     while (true) {
         auto token = tokens.safe_peek();
         if (!token.has_value()) {
@@ -303,6 +309,13 @@ auto parse_function_definition(Token keyword,
 
         if (token.value().type == TokenType::comma) {
             tokens.pop();
+            continue;
+        }
+
+        if (token.value().type == TokenType::variadic) {
+            tokens.pop();
+            variadic = true;
+            continue;
         }
 
         auto parameter = parse_function_definition_parameter(
@@ -375,6 +388,7 @@ auto parse_function_definition(Token keyword,
     return std::make_optional(Node{FunctionDefinition{
         name,
         external_keyword.has_value(),
+        variadic,
         parameters,
         return_type,
         body,
@@ -455,20 +469,20 @@ auto parse_expression(Buffer<std::vector<Token>>& tokens,
         return std::nullopt;
     }
 
-    if (peek_token_type(tokens, TokenType::dot)) {
+    while (peek_token_type(tokens, TokenType::dot)) {
         const auto dot_token = tokens.pop();
-        const auto chained_expression = parse_expression(tokens, diagnostics);
+        const auto member =
+            parse_identifier_or_function_call(dot_token, tokens, diagnostics);
 
-        if (!chained_expression.has_value()) {
+        if (!member.has_value()) {
             diagnostics.push_error("Expected chained expression",
                                    dot_token.source);
             return std::nullopt;
         }
 
-        value = Node{
-            MemberAccess{std::make_shared<Node>(value.value()),
-                         std::make_shared<Node>(chained_expression.value()),
-                         {dot_token}}};
+        value = Node{MemberAccess{std::make_shared<Node>(value.value()),
+                                  std::make_shared<Node>(member.value()),
+                                  {dot_token}}};
     }
 
     std::cerr << "Parsed expression " << value.value() << '\n';

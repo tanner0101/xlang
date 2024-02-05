@@ -23,6 +23,7 @@ TEST(ParserTest, TestParsing) {
     auto expected = std::vector<Node>{{FunctionDefinition{
         "main",
         false,
+        false,
         std::vector<FunctionDefinition::Parameter>{},
         std::nullopt,
         std::vector<Node>{{FunctionCall{

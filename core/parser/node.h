@@ -119,6 +119,7 @@ struct MemberAccess {
 struct FunctionDefinition {
     std::string name;
     bool external;
+    bool variadic;
 
     struct Parameter {
         std::string name;
@@ -231,9 +232,9 @@ inline auto operator<<(std::ostream& os, Node node) -> std::ostream& {
     case NodeType::identifier:
         os << "(" << std::get<Identifier>(node.value).name << ")";
         break;
-    case NodeType::string_literal:
+    case NodeType::string_literal: {
         os << "(" << std::get<StringLiteral>(node.value).value << ")";
-        break;
+    } break;
     case NodeType::variable_definition: {
         auto variable_definition = std::get<VariableDefinition>(node.value);
         os << "(" << variable_definition.name << "="

@@ -11,6 +11,7 @@ TEST(CompilerTest, TestCompile) {
     auto ast = std::vector<Node>{{FunctionDefinition{
         "main",
         false,
+        false,
         std::vector<FunctionDefinition::Parameter>{},
         std::nullopt,
         std::vector<Node>{

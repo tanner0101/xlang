@@ -360,7 +360,8 @@ auto compile_function_call(const FunctionCall& value, Scope& scope)
         return std::nullopt;
     }
 
-    if (args.size() != func->parameter_types.size()) {
+    if (!func->definition->variadic &&
+        args.size() != func->parameter_types.size()) {
         scope.diagnostics.push_error(
             "Incorrect number of arguments for function '" + value.name +
                 "'. Expected " + std::to_string(func->parameter_types.size()) +
@@ -378,6 +379,9 @@ auto compile_function_call(const FunctionCall& value, Scope& scope)
         }
 
         auto arg = args[i];
+        if (func->definition->variadic && i >= func->parameter_types.size()) {
+            continue;
+        }
         auto param_def = func->definition->parameters[i];
         auto param_type = func->parameter_types[i];
 
@@ -427,7 +431,7 @@ auto compile_member_access(const MemberAccess& value, Scope& scope)
 
     const auto struct_index =
         get_member_index(*base.value().type, identifier.name, scope.diagnostics,
-                         identifier.token.source);
+                         node_source(*value.member));
     if (!struct_index.has_value()) {
         return std::nullopt;
     }
@@ -495,6 +499,42 @@ auto safe_name(const std::string& input) -> std::string {
     return safe_name;
 }
 
+auto escape_string(const std::string& input) -> std::string {
+    std::string output;
+    bool escape = false;
+
+    for (char ch : input) {
+        if (escape) {
+            switch (ch) {
+            case 'n':
+                output += '\n';
+                break;
+            case 't':
+                output += '\t';
+                break;
+            // Add more cases here for other escape sequences if needed
+            default:
+                output +=
+                    ch; // For unrecognized sequences, keep the character as-is
+            }
+            escape = false; // Reset the escape flag
+        } else {
+            if (ch == '\\') {
+                escape = true; // Set flag if backslash is found
+            } else {
+                output += ch; // Add character to output as-is
+            }
+        }
+    }
+
+    // Append a trailing backslash if it's the last character in the input
+    if (escape) {
+        output += '\\';
+    }
+
+    return output;
+}
+
 auto compile_string_literal(const StringLiteral& value, Scope& scope)
     -> std::optional<CompiledNode> {
     auto string_type = scope.get_type_by_name("String");
@@ -508,7 +548,7 @@ auto compile_string_literal(const StringLiteral& value, Scope& scope)
         string_type->llvm, nullptr, "string_literal_" + safe_name(value.value));
 
     scope.builder.CreateStore(
-        scope.builder.CreateGlobalStringPtr(value.value),
+        scope.builder.CreateGlobalStringPtr(escape_string(value.value)),
         scope.builder.CreateStructGEP(string_type->llvm, alloca, 0));
 
     return CompiledNode{alloca, string_type};

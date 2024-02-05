@@ -18,6 +18,8 @@ auto xlang::lex(Buffer<std::string> input, Diagnostics& diagnostics)
 
     LexerState state = LexerState::none;
 
+    // TODO: refactor with safe peek / pop
+
     while (!input.empty()) {
         switch (state) {
         case LexerState::none:
@@ -57,11 +59,18 @@ auto xlang::lex(Buffer<std::string> input, Diagnostics& diagnostics)
                 tokens.emplace_back(TokenType::comma, source);
                 source.column += 1;
                 break;
-            case '.':
+            case '.': {
                 input.pop();
-                tokens.emplace_back(TokenType::dot, source);
-                source.column += 1;
-                break;
+                if (input.safe_peek() == '.' && input.safe_peek(1) == '.') {
+                    input.pop();
+                    input.pop();
+                    tokens.emplace_back(TokenType::variadic, source);
+                    source.column += 3;
+                } else {
+                    tokens.emplace_back(TokenType::dot, source);
+                    source.column += 1;
+                }
+            } break;
             case '<':
                 input.pop();
                 tokens.emplace_back(TokenType::angle_open, source);
@@ -142,7 +151,6 @@ auto xlang::lex(Buffer<std::string> input, Diagnostics& diagnostics)
             }
             break;
         case LexerState::string_literal:
-            // TODO: support escape sequences
             if (input.peek() == '"') {
                 input.pop();
                 state = LexerState::none;

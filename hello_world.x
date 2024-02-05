@@ -6,7 +6,7 @@ struct String {
     raw: Pointer<UInt8>
 }
 
-extern fn printf(s: Pointer<UInt8>) -> Int32
+extern fn printf(s: Pointer<UInt8>, ...) -> Int32
 extern fn puts(s: Pointer<UInt8>) -> Int32
 
 fn print(string: String) {
@@ -27,9 +27,9 @@ struct Planet {
 }
 
 fn greet(name: String) {
-    print("hello ")
+    print("Hello, ")
     print(name)
-    print("!")
+    print("!\n")
 }
 
 fn main() {
@@ -38,5 +38,7 @@ fn main() {
     var mars = Planet("Mars", 2)
     greet(mars.name)
     print(test())
+
+    printf("Earth has %d moons\n".raw, earth.moons.raw)
 }
 
