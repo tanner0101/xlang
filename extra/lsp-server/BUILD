@@ -5,7 +5,7 @@ cc_binary(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//core/compiler",
+        "//core/ir",
         "//core/lexer",
         "//core/parser",
         "@boost",

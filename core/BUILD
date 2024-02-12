@@ -4,8 +4,9 @@ cc_binary(
         "main.cpp",
     ],
     deps = [
-        "//core/compiler",
+        "//core/ir",
         "//core/lexer",
+        "//core/llvmir",
         "//core/parser",
     ],
 )
