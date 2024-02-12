@@ -1,5 +1,6 @@
-#include "compiler/compiler.h"
+#include "ir/ir.h"
 #include "lexer/lexer.h"
+#include "llvmir/llvmir.h"
 #include "parser/parser.h"
 
 #include <fstream>
@@ -46,8 +47,13 @@ auto main(int argc, char* argv[]) -> int {
     // }
     // return 0;
 
-    const auto ir = compile(ast, diagnostics);
-    std::cout << ir << '\n';
+    const auto module = ir::compile(ast, diagnostics);
+    std::cerr << module << '\n';
+
+    std::cout << llvmir::print(module, diagnostics) << '\n';
+
+    // const auto ir = compile(ast, diagnostics);
+    // std::cout << ir << '\n';
 
     for (const auto& diagnostic : diagnostics) {
         std::cerr << diagnostic.message << " (" << diagnostic.source << ")"

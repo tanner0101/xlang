@@ -19,14 +19,53 @@ ENUM_CLASS(NodeType, identifier, variable_definition, function_definition,
 struct Node;
 
 struct TypeIdentifier {
-    std::string name;
+    static auto _void() -> TypeIdentifier { return anonymous_type("Void"); };
 
-    std::vector<TypeIdentifier> genericParameters;
+    static auto string() -> TypeIdentifier { return anonymous_type("String"); };
+
+    static auto uint8() -> TypeIdentifier { return anonymous_type("UInt8"); };
+
+    static auto int32() -> TypeIdentifier { return anonymous_type("Int32"); };
+
+    static auto pointer_to(const TypeIdentifier& type) -> TypeIdentifier {
+        auto pointer = anonymous_type("Pointer");
+        pointer.generic_parameters.push_back(type);
+        return pointer;
+    };
+
+    // TODO: make this less gross (move source to parent type?)
+    static auto anonymous_type(const std::string& name) -> TypeIdentifier {
+        return TypeIdentifier{name,
+                              {},
+                              {
+                                  Token{TokenType::identifier, name, Source{}},
+                              }};
+    };
+
+    std::string name;
+    std::vector<TypeIdentifier> generic_parameters;
+
+    [[nodiscard]] auto full_name() const -> std::string {
+        std::string result = name;
+        if (!generic_parameters.empty()) {
+            result += "<";
+            bool first = true;
+            for (const auto& generic_parameter : generic_parameters) {
+                if (!first) {
+                    result += ",";
+                }
+                first = false;
+                result += generic_parameter.full_name();
+            }
+            result += ">";
+        }
+        return result;
+    }
 
     struct Tokens {
         Token name;
-        std::optional<Token> genericOpen;
-        std::optional<Token> genericClose;
+        std::optional<Token> generic_open;
+        std::optional<Token> generic_close;
 
         auto operator==(const Tokens& other) const -> bool = default;
     };
@@ -39,18 +78,18 @@ struct TypeIdentifier {
 inline auto operator<<(std::ostream& os, const TypeIdentifier& value)
     -> std::ostream& {
     os << value.name;
-    if (!value.genericParameters.empty()) {
+    if (!value.generic_parameters.empty()) {
         os << "<";
     }
     bool first = true;
-    for (const auto& generic_parameter : value.genericParameters) {
+    for (const auto& generic_parameter : value.generic_parameters) {
         if (!first) {
             os << ",";
         }
         first = false;
         os << generic_parameter;
     }
-    if (!value.genericParameters.empty()) {
+    if (!value.generic_parameters.empty()) {
         os << ">";
     }
     return os;
@@ -94,8 +133,8 @@ struct FunctionCall {
 
     struct Tokens {
         Token identifier;
-        Token parenOpen;
-        Token parenClose;
+        Token paren_open;
+        Token paren_close;
         auto operator==(const Tokens& other) const -> bool = default;
     };
     Tokens tokens;

@@ -1,4 +1,4 @@
-#include "core/compiler/compiler.h"
+#include "core/ir/ir.h"
 #include "core/lexer/lexer.h"
 #include "core/parser/parser.h"
 #include <boost/asio.hpp>
@@ -91,7 +91,7 @@ auto publish_diagnostics(const Context& ctx, const TextDocument file)
     auto diagnostics = xlang::Diagnostics{};
     auto tokens = xlang::lex(file.data, diagnostics);
     auto ast = xlang::parse(tokens, diagnostics);
-    compile(ast, diagnostics);
+    auto module = xlang::ir::compile(ast, diagnostics);
     return boost::json::object{
         {"method", "textDocument/publishDiagnostics"},
         {"params", boost::json::object{
@@ -150,7 +150,7 @@ auto semantic_type(const xlang::TypeIdentifier& type, boost::json::array& data,
     semantic_token(type.tokens.name, type.name.length(),
                    SemanticTokenType::type, SemanticTokenModifier::none, data,
                    previous);
-    for (const auto& generic_parameter : type.genericParameters) {
+    for (const auto& generic_parameter : type.generic_parameters) {
         semantic_type(generic_parameter, data, previous);
     }
 }
